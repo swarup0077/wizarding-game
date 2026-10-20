@@ -69,7 +69,7 @@ src/
     trailRenderer.ts
     particles.ts             pooled particle system
     effects/                 fizzle.ts, lumos.ts, leviosa.ts, incendio.ts
-    hud/                     resultCard.ts, micIndicator.ts, webcamPip.ts, spellCards.ts, toasts.ts
+    hud/                     resultCard.ts, micIndicator.ts, webcamPip.ts, spellCards.ts, toasts.ts (HTML/CSS over the canvas)
     audio/sfx.ts             Web Audio synthesized sounds
   dev/
     debugOverlay.ts
@@ -181,6 +181,8 @@ export interface Prop { id: string; tags: string[]; bounds: { x: number; y: numb
 ```
 `View` converts normalized coordinates to screen pixels. It is the only place pixels appear.
 
+HUD and debug text is HTML/CSS layered over the canvas, never canvas text, so the DPR cap never blurs it (D-023). Only world text, such as the notice board's message, is drawn on the canvas.
+
 ## Extension points (how the game grows without rewrites)
 | To add... | You add | You do NOT touch |
 |---|---|---|
@@ -203,4 +205,4 @@ All `localStorage` keys are versioned: `wg.settings.v1`, `wg.calibration.v1`, `w
 - **Time:** comes from the injectable clock (`performance.now()` in the browser, fake in tests).
 
 ## Deployment
-A static build (`npm run build` → `dist/`) served over HTTPS from T1 on (host chosen in T1, default Vercel). Nothing is downloaded at build time: the hand model is committed and the wasm files come from `node_modules`. Asset URLs are built from Vite's `import.meta.env.BASE_URL`, so the build also works from a sub-path. Supported browsers: Chrome on Windows and on macOS (Retina, DPR 2); Edge on Windows second.
+A static build (`npm run build` → `dist/`) served over HTTPS from T1 on by Vercel, connected to the GitHub repo (each push to the main branch updates the production link). Nothing is downloaded at build time: the hand model is committed and the wasm files come from `node_modules`. Asset URLs are built from Vite's `import.meta.env.BASE_URL`, so the build also works from a sub-path. Supported browsers: Chrome on Windows and on macOS (Retina, DPR 2); Edge on Windows second.

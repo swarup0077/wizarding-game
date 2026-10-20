@@ -161,6 +161,7 @@ Events carry normalized [0,1] coordinates: x is a fraction of the stage width, y
     - A subtle warm pulse washes over the screen.
   - **Fizzle** (every miscast): a grey smoke puff and a sputter of sparks at the wand point.
 - **FR-20 HUD.**
+  - All HUD text (result card, spell cards, mic indicator, toasts, the PiP's "Hand lost" label) is HTML/CSS layered over the canvas, never drawn on it, so the DPR cap (FR-17) never blurs it. Spell-card shapes are inline SVG for the same reason. Text that belongs to the world, like the notice board's hidden message, stays on the canvas because light effects reveal it.
   - **Result card** (top centre, 2 s):
     - On a cast: spell name, quality %, and tier word (Weak / Good / Strong), with a small line showing shape · voice · speed.
     - On a miscast: a short friendly reason, e.g. "Shape unclear: try a rounder circle", "Heard 'loomis' but drew Incendio", "Say the spell as you cast".
@@ -187,6 +188,7 @@ Events carry normalized [0,1] coordinates: x is a fraction of the stage width, y
   - **Recognition:** the last trace's resampled points, ranked gesture scores from the active recognizer, the trace's peak and mean velocity, voice transcripts with alternatives, match scores.
   - **Fusion:** fusion state and timers, plus a log of the last 20 events.
   - When hidden, it costs under 1 ms per frame.
+  - Its text and numbers are HTML, like the HUD, refreshed a few times per second (tunable). Drawings in stage space (raw vs filtered dot, trace points) stay on the canvas.
 - **FR-24 Gesture benchmark.** `npm run bench:gestures` runs both recognizers over the recorded fixtures. It is a Vitest file under `bench/`, excluded from `npm test`, with no new dependency. It reports, for each recognizer and each template set (defaults only; defaults + personal):
   - accuracy per spell;
   - a confusion matrix;
@@ -208,7 +210,7 @@ Events carry normalized [0,1] coordinates: x is a fraction of the stage width, y
 - **NFR-5 Code.** Follows `CLAUDE.md`.
 - **NFR-6 Privacy.** Our code never stores or sends video or audio. The intro screen says in one line that voice recognition is handled by the browser's speech service.
 - **NFR-7 Deployment and browsers.**
-  - The game is a static site served over HTTPS (camera and mic need a secure context). The host is chosen in T1 (default Vercel); from T1 on, every task can be reviewed from a link.
+  - The game is a static site served over HTTPS (camera and mic need a secure context). Hosting is Vercel, connected to the GitHub repo: each push to the main branch updates the production link, so from T1 on every task can be reviewed from a link.
   - Builds never download anything: the hand model is committed and the wasm files come from `node_modules`.
   - Supported: Chrome on Windows (the development laptop, integrated graphics) and Chrome on macOS (the reviewer's Retina MacBook, DPR 2). Edge on Windows is second. Safari is not supported.
 

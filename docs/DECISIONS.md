@@ -95,10 +95,19 @@ Each entry: the decision, the alternatives, and why. Add new ones at the bottom 
 - **Why:** For a circle, starting at another clock position is the same as rotating it, so ±30° rejected a circle started at 3 o'clock. Direction still matters for the other spells. Rotation can never mirror a shape, so an anticlockwise circle still fails as Lumos, and a T7 test proves it. The tolerance is spell data, so each future spell picks its own.
 
 ## D-021: HTTPS static hosting from T1; Chrome on Mac supported (spec review F)
-- **Decision:** From T1, deploy the static build over HTTPS (host chosen in T1, default Vercel). Supported: Chrome on Windows (development laptop) and Chrome on macOS (the reviewer's Retina MacBook, DPR 2). Edge on Windows is second; Safari is not supported. AC-15 checks the deployed link on a Mac before it is shared.
+- **Decision:** From T1, deploy the static build over HTTPS on Vercel, connected to the GitHub repo, so each push to the main branch updates the production link. Supported: Chrome on Windows (development laptop) and Chrome on macOS (the reviewer's Retina MacBook, DPR 2). Edge on Windows is second; Safari is not supported. AC-15 checks the deployed link on a Mac before it is shared.
 - **Alternatives:** deploy only at the end of Phase 0; local demos only.
 - **Why:** The professor reviews from a link on a MacBook. Deploying from T1 makes every task reviewable and surfaces deploy problems (HTTPS, asset paths, macOS camera and mic permissions) early instead of at the end. DPR 2 means 4× the pixels per frame, so FR-17 caps the device pixel ratio with a tunable value.
 
 ## D-022: Commit the hand model
 - **Alternatives:** download it at install or build time; load it from Google's CDN at runtime.
 - **Why:** Deploys never depend on a third-party download succeeding, and builds are reproducible. About 8 MB in git is acceptable. FR-2 already rules out a runtime CDN. The wasm files stay generated from `node_modules`, whose version the lockfile pins.
+
+## D-023: HUD text is HTML/CSS over the canvas, never canvas text
+- **Decision:** The result card, spell cards, mic indicator, toasts, the PiP's labels and the debug overlay's text are HTML/CSS elements layered over the canvas. Spell-card shapes are inline SVG. Only world text, such as the notice board's message, is drawn on the canvas, because Lumos's light has to reveal it.
+- **Alternatives:** draw HUD text on the canvas; a second, full-resolution canvas just for the HUD.
+- **Why:**
+  - The DPR cap (FR-17) renders the canvas below native resolution on a Retina Mac and on scaled Windows displays, so canvas text would be stretched and blurry. The browser draws HTML text at native resolution whatever the cap.
+  - HTML gets proper font rendering, CSS styling for one consistent HUD look (T13), and text that screen readers can read.
+  - A second full-resolution canvas would bring back the pixel cost the cap exists to avoid.
+  - The cost: HUD updates go through the DOM rather than the render loop. That is fine for elements that change a few times per second, and the debug overlay throttles its text refresh for that reason.

@@ -31,14 +31,14 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 
 ## T1: Stage, render loop, debug overlay skeleton, hosting
 **Covers:** FR-17 (background only), FR-23 (fps only), NFR-1, NFR-7
-**Before starting:** ask which host to use (default Vercel).
+**Hosting:** Vercel, connected to your GitHub repo (you push it before T1).
 **Build:**
 - `presentation/canvasStage.ts`: full-window canvas, DPR-aware with the DPR cap from `tuning.ts`, resize-safe, one `requestAnimationFrame` loop.
 - `View`: normalized ↔ pixel conversion.
 - The background: dimly lit night-blue, vignette, procedural stone texture rendered once to an offscreen canvas.
 - `scenes/scene.ts` and an empty `practiceStage.ts`.
-- `dev/debugOverlay.ts`, toggled with D, showing render fps.
-- **Hosting:** deploy the static build over HTTPS so this and every later task can be reviewed from a link. Record the URL in `PROGRESS.md`.
+- `dev/debugOverlay.ts`, toggled with D, showing render fps as HTML text over the canvas, refreshed a few times per second.
+- **Hosting:** you import the GitHub repo in Vercel (it detects Vite: `npm run build`, output `dist/`), and every push to the main branch updates the production link. I check that the build works there. Record the URL in `PROGRESS.md`.
 
 **Tests:** `View` conversions round-trip.
 **Manual check:** the background looks good, resizing stays crisp, and D shows render fps ≥ 55. The deployed link shows the same page in Chrome over HTTPS. If you can, check it on a DPR-2 Mac too, and record the chosen DPR cap.
@@ -59,7 +59,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Build:**
 - `input/camera.ts`, with a distinct error for each failure type.
 - `hud/webcamPip.ts`: mirrored preview.
-- `hud/toasts.ts`, driven by `system:message`.
+- `hud/toasts.ts` (HTML), driven by `system:message`.
 - On camera failure, offer mouse mode.
 
 **Tests:** the error-mapping function (pure) maps each DOMException name to the correct message, including the macOS "blocked by the operating system" case.
@@ -122,7 +122,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
   - `gestureRecognizer.ts`: the interface and the shared accept rule.
   - `protractor.ts` (primary) and `dollarOne.ts` (baseline), both orientation-sensitive with rotation limited to each spell's `rotationToleranceDeg`.
 - **Spells:** `spells/spellTypes.ts` (including `PowerRule` and `rotationToleranceDeg`), `spells.ts` (3 spells, effects not yet implemented), `spellRegistry.ts`.
-- **HUD:** `hud/spellCards.ts`, drawing each shape from its template.
+- **HUD:** `hud/spellCards.ts`: HTML cards, each shape drawn from its template as inline SVG.
 - **Debug:** ranked gesture scores, plus a dev toggle to switch recognizer live.
 
 **Tests:** run every recognizer test against **both** recognizers through the interface.
@@ -161,7 +161,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Build:**
 - `perception/speechListener.ts`: auto-restart with backoff, and per-error handling.
 - `recognition/voiceMatcher.ts`: phonetic normalization, word windows, aliases, and matching only against the allowlist of known spells.
-- `hud/micIndicator.ts`.
+- `hud/micIndicator.ts` (HTML).
 - Unmatched-transcript log in the debug overlay.
 
 **Tests:**
@@ -178,7 +178,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Build:**
 - `recognition/castFusion.ts`, a pure state machine driven by events plus the injectable clock.
 - `recognition/quality.ts`: a weighted sum over the signals named in each spell's `PowerRule`.
-- `hud/resultCard.ts`, which updates its hint on `spell:miscastHeard`.
+- `hud/resultCard.ts` (HTML), which updates its hint on `spell:miscastHeard`.
 - Gesture-only mode.
 
 **Tests:**
