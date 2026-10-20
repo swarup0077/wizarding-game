@@ -61,14 +61,14 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Goal:** every HUD element from T3 on uses one consistent, unmistakably Harry Potter–inspired style, built only from original or CC0/OFL assets.
 **Build:**
 - `docs/ART_DIRECTION.md`: palette, typography, materials, motion rules, a colour per spell, sound direction, IP guardrails.
-- Fonts in `public/fonts/` (woff2, latin subset, OFL licences committed): Cinzel Decorative (titles, spell names), Cinzel (small labels), EB Garamond (body), Pinyon Script (handwriting).
+- Fonts in `public/fonts/` (woff2, latin subset, OFL licences committed): Cinzel Decorative (titles, spell names, labels), IM Fell English (body), Pinyon Script (handwriting). Chosen from a side-by-side comparison (D-048).
 - `src/ui/theme.css` (design tokens, including `--house-primary` / `--house-secondary`, neutral gold until the Sorting), `materials.css` (procedural textures), `filters.ts` (SVG filters), `ornaments.ts` (original flourishes and the star or wand seal mark), `brand.ts` (`GAME_TITLE` placeholder; T13 fills it in).
 - The kit (`src/ui/kit/`): parchment panel, wax-seal button (plus a quiet ink link), ink-note toast, ornate gilded frame, spellbook page, grade badge.
 - `src/ui/grades.ts`: tier → grade (O/E/A), miscast → P.
 - `?dev=ui` gallery showing every component in every state, the palette with contrast ratios, a type specimen and a font comparison.
 
 **Tests:** grade mapping; every `var(--x)` used in a stylesheet is defined; text/background contrast for every text colour on every parchment shade (the green handwriting at the body-text bar); spellbook shape geometry.
-**Manual check:** open `?dev=ui` and judge every component; pick one font per comparison row.
+**Manual check:** open `?dev=ui` and judge every component.
 
 ## T3: Camera and webcam preview
 **Covers:** FR-1, FR-20 (preview, toasts), AC-10 (camera part)

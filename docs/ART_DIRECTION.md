@@ -24,9 +24,9 @@ All OFL-licensed, self-hosted in `public/fonts/` (see its README).
 
 | Role | Font | Rules |
 |---|---|---|
-| Titles, spell names | Cinzel Decorative | 24 px and up. Ligatures off in titles (its "TH" reads oddly); spell names keep them. |
-| Labels, buttons | Cinzel | Uppercase, 0.08 em tracking, 13–16 px. Replaces Cinzel Decorative at small sizes, where its swashes blur. |
-| Body, hints | EB Garamond (regular, italic) | 16 px minimum: it has a small x-height. |
+| Titles, spell names | Cinzel Decorative | 24 px and up. Ligatures off in titles; spell names keep them. |
+| Labels, buttons | Cinzel Decorative | Uppercase, 0.08 em tracking, 13–16 px, ligatures off, bold. Check new labels at DPR 1 for legibility. |
+| Body, hints | IM Fell English (regular, italic) | 16 px minimum. Its uneven, old-print letterforms are part of the look; keep body text short. |
 | Handwriting | Pinyon Script, in green or brown ink | 30 px minimum; addresses and personal notes only, never instructions. |
 
 ## Materials

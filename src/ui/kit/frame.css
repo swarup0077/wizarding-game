@@ -104,6 +104,7 @@
   font-weight: 700;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
+  font-variant-ligatures: none;
   white-space: nowrap;
 }
 

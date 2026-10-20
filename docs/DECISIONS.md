@@ -259,3 +259,8 @@ Each entry: the decision, the alternatives, and why. Add new ones at the bottom 
 - **Decision:** Everything that shows the title uses `GAME_TITLE` from `src/ui/brand.ts` (now `[Game Title]`). Seals carry an original star or star-over-wand mark.
 - **Alternatives:** pick a working title now.
 - **Why:** The name is still to be decided. One constant means T13 changes one line, and nothing hints at an official name or logo in the meantime.
+
+## D-048: Final fonts: IM Fell English, Pinyon Script, Cinzel Decorative throughout (T2b follow-up; updates D-042)
+- **Decision:** Body text is IM Fell English, handwriting is Pinyon Script, and Cinzel Decorative is used for titles, spell names **and** small labels. EB Garamond, plain Cinzel and Petit Formal Script were removed with their licences (5 files, 187 KB remain).
+- **Alternatives:** EB Garamond for body and plain Cinzel for labels (my recommendation, for legibility at HUD sizes).
+- **Why:** Chosen by eye from the side-by-side comparison: IM Fell English's old-print texture and Cinzel Decorative's swash capitals give the strongest period feel. Legibility checked at DPR 2: body, italic hints, labels and the green address all read clearly. To keep it that way, labels stay bold, uppercase and at least 13 px, with ligatures off, and body text stays short. Cinzel Decorative's capitals give "THE" a joined look even with ligatures off; that is the font's design, accepted with the choice.

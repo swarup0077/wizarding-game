@@ -5,10 +5,8 @@ Self-hosted, latin subset only, woff2. All are licensed under the SIL Open Font 
 
 | File | Family | Use (docs/ART_DIRECTION.md) |
 |---|---|---|
-| `cinzel-decorative-400-latin.woff2`, `cinzel-decorative-700-latin.woff2` | Cinzel Decorative (Natanael Gama) | Titles, spell names |
-| `cinzel-latin.woff2` | Cinzel, variable weight (Natanael Gama) | Small labels, button text |
-| `eb-garamond-latin.woff2`, `eb-garamond-italic-latin.woff2` | EB Garamond, variable weight (Georg Duffner, Octavio Pardo) | Body text |
+| `cinzel-decorative-400-latin.woff2`, `cinzel-decorative-700-latin.woff2` | Cinzel Decorative (Natanael Gama) | Titles, spell names, labels and buttons |
+| `im-fell-english-latin.woff2`, `im-fell-english-italic-latin.woff2` | IM Fell English (Igino Marini) | Body text and hints |
 | `pinyon-script-latin.woff2` | Pinyon Script (Nicole Fally) | Handwriting |
 
-`compare/` holds the alternatives shown in the `?dev=ui` font comparison (IM Fell English by
-Igino Marini; Petit Formal Script by Impallari Type). Delete the ones not chosen.
+Chosen in T2b from a side-by-side comparison (D-048); the alternatives were removed.

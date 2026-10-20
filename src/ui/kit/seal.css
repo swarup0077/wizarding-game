@@ -12,6 +12,7 @@
   font-weight: 600;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
+  font-variant-ligatures: none;
   cursor: pointer;
   pointer-events: auto;
 }

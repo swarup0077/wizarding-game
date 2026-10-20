@@ -15,21 +15,15 @@
   font-display: swap;
 }
 @font-face {
-  font-family: 'Cinzel';
-  src: url('/fonts/cinzel-latin.woff2') format('woff2');
-  font-weight: 400 900;
+  font-family: 'IM Fell English';
+  src: url('/fonts/im-fell-english-latin.woff2') format('woff2');
+  font-weight: 400;
   font-display: swap;
 }
 @font-face {
-  font-family: 'EB Garamond';
-  src: url('/fonts/eb-garamond-latin.woff2') format('woff2');
-  font-weight: 400 800;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'EB Garamond';
-  src: url('/fonts/eb-garamond-italic-latin.woff2') format('woff2');
-  font-weight: 400 800;
+  font-family: 'IM Fell English';
+  src: url('/fonts/im-fell-english-italic-latin.woff2') format('woff2');
+  font-weight: 400;
   font-style: italic;
   font-display: swap;
 }
@@ -98,12 +92,12 @@
   --house-secondary: var(--gold-800);
 
   /* Type. */
-  --font-title: 'Cinzel Decorative', 'Cinzel', Georgia, serif;
-  --font-label: 'Cinzel', Georgia, serif;
-  --font-body: 'EB Garamond', Georgia, 'Times New Roman', serif;
+  --font-title: 'Cinzel Decorative', Georgia, serif;
+  --font-label: 'Cinzel Decorative', Georgia, serif;
+  --font-body: 'IM Fell English', Georgia, 'Times New Roman', serif;
   --font-hand: 'Pinyon Script', 'Segoe Script', cursive;
-  --text-xs: 13px; /* Cinzel caps labels only */
-  --text-sm: 16px; /* smallest body text: EB Garamond has a small x-height */
+  --text-xs: 13px; /* uppercase labels only */
+  --text-sm: 16px; /* smallest body text */
   --text-md: 19px;
   --text-lg: 24px;
   --text-xl: 32px;

@@ -172,8 +172,7 @@ Overall brightness is lower. The 99th percentile rose slightly because a few sto
 
 **Verify:**
 1. `npm run dev`, open http://localhost:5173/?dev=ui and scroll through: palette, type, panels and the acceptance letter, seal buttons (normal, hover, pressed, disabled), ink notes, the gilded frame, grade badges, spellbook pages. Click "Replay entrances" to see unroll, ink-bleed and quill.
-2. Pick one font per row in "Font comparison" and tell me; the unused files in `public/fonts/compare/` get deleted.
-3. Hover a real seal button: it tilts and glints. Press it: it stamps down.
+2. Hover a real seal button: it tilts and glints. Press it: it stamps down.
 
 **Numbers:**
 - 147 tests (~0.8 s), including the contrast checks (every text colour on every parchment shade) and the token check.
@@ -188,6 +187,7 @@ Overall brightness is lower. The 99th percentile rose slightly because a few sto
 
 A follow-up run with timestamps showed every long gap inside the first 2.2 s after load: the stage background, every gallery component, fonts, filters and entrance animations all paint for the first time at once. After that, no gap over 17.1 ms. One parchment panel added mid-session at emulated Retina costs a single dropped frame (a 33.1 ms gap), so HUD panels are built once and reused (D-046).
 
+**Font choice (follow-up):** body IM Fell English, handwriting Pinyon Script, small labels Cinzel Decorative. Unchosen fonts and their licences deleted; 5 files, 187 KB (D-048). Checked at DPR 2: body, italic hints, labels and the green address all legible.
+
 **Open issues:**
-- Font choice per comparison row (yours).
 - The gallery's "SPELLBOOK" heading still shows Cinzel Decorative's joined "OO" even with ligatures off; it is a glyph variant of the font. If it bothers you in spell names or titles, those can use plain Cinzel.

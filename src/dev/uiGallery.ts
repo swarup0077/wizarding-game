@@ -123,14 +123,18 @@ function typeSection(): HTMLElement {
   const specimen = parchmentPanel({});
   const lines: [string, string, string][] = [
     ['Cinzel Decorative · titles, spell names', 'wg-gallery__type-title', 'Wingardium Leviosa'],
-    ['Cinzel · labels, buttons', 'wg-gallery__type-label', 'Retry · Use the mouse · Settings'],
     [
-      'EB Garamond · body',
+      'Cinzel Decorative · labels, buttons (uppercase)',
+      'wg-gallery__type-label',
+      'Retry · Use the mouse · Settings',
+    ],
+    [
+      'IM Fell English · body',
       'wg-gallery__type-body',
       'Hold the wand steady, then trace the shape in one smooth stroke while you say the word.',
     ],
     [
-      'EB Garamond italic · hints',
+      'IM Fell English italic · hints',
       'wg-gallery__type-italic',
       'Shape unclear: try a rounder circle.',
     ],
@@ -142,43 +146,8 @@ function typeSection(): HTMLElement {
     p.textContent = sample;
     specimen.append(note(label), p);
   }
-  s.append(specimen, heading('Font comparison (pick one per row)', 'h3'), compareRows());
+  s.append(specimen);
   return s;
-}
-
-function compareRows(): HTMLElement {
-  const table = parchmentPanel({});
-  const pairs: [string, string, string, string][] = [
-    ['Body', 'wg-gallery__cmp-garamond', 'wg-gallery__cmp-fell', 'EB Garamond | IM Fell English'],
-    [
-      'Handwriting',
-      'wg-gallery__cmp-pinyon',
-      'wg-gallery__cmp-petit',
-      'Pinyon Script | Petit Formal Script',
-    ],
-    [
-      'Small labels',
-      'wg-gallery__cmp-decorative',
-      'wg-gallery__cmp-cinzel',
-      'Cinzel Decorative | Cinzel',
-    ],
-  ];
-  const samples: Record<string, string> = {
-    Body: 'The camera is busy. Close the other app, then press Retry.',
-    Handwriting: 'The Chair by the Glowing Window',
-    'Small labels': 'Retry · Enable camera',
-  };
-  for (const [what, a, b, names] of pairs) {
-    const [nameA, nameB] = names.split(' | ');
-    const left = document.createElement('p');
-    left.className = a;
-    left.textContent = samples[what] ?? '';
-    const right = document.createElement('p');
-    right.className = b;
-    right.textContent = samples[what] ?? '';
-    table.append(note(what), row(labelled(nameA ?? '', left), labelled(nameB ?? '', right)));
-  }
-  return table;
 }
 
 function panelsSection(): HTMLElement {

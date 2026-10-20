@@ -1,17 +1,5 @@
 /* Dev gallery layout (?dev=ui). Not part of the kit itself. */
 
-/* Comparison fonts: loaded only here, deleted once one per row is chosen. */
-@font-face {
-  font-family: 'IM Fell English';
-  src: url('/fonts/compare/im-fell-english-latin.woff2') format('woff2');
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Petit Formal Script';
-  src: url('/fonts/compare/petit-formal-script-latin.woff2') format('woff2');
-  font-display: swap;
-}
-
 .wg-gallery {
   position: fixed;
   inset: 0;
@@ -125,39 +113,4 @@ h3.wg-gallery__heading {
 }
 .wg-gallery__letter-seal {
   margin-left: auto;
-}
-
-.wg-gallery__cmp-garamond,
-.wg-gallery__cmp-fell {
-  width: 380px;
-  margin: 0;
-  font-size: var(--text-md);
-}
-.wg-gallery__cmp-fell {
-  font-family: 'IM Fell English', var(--font-body);
-}
-.wg-gallery__cmp-pinyon,
-.wg-gallery__cmp-petit {
-  width: 380px;
-  margin: 0;
-  font-family: var(--font-hand);
-  font-size: var(--text-hand);
-  color: var(--ink-green);
-}
-.wg-gallery__cmp-petit {
-  font-family: 'Petit Formal Script', var(--font-hand);
-  font-size: 24px;
-}
-.wg-gallery__cmp-decorative,
-.wg-gallery__cmp-cinzel {
-  width: 380px;
-  margin: 0;
-  font-family: var(--font-title);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: var(--tracking-label);
-}
-.wg-gallery__cmp-cinzel {
-  font-family: var(--font-label);
-  text-transform: uppercase;
 }
