@@ -1,0 +1,19 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+
+# Copied from node_modules at install time (scripts/copy-mediapipe.mjs).
+# public/models/ is NOT ignored: the hand model is committed (D-022).
+public/mediapipe/
+
+# Hosting
+.vercel/
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.log

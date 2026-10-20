@@ -111,3 +111,30 @@ Each entry: the decision, the alternatives, and why. Add new ones at the bottom 
   - HTML gets proper font rendering, CSS styling for one consistent HUD look (T13), and text that screen readers can read.
   - A second full-resolution canvas would bring back the pixel cost the cap exists to avoid.
   - The cost: HUD updates go through the DOM rather than the render loop. That is fine for elements that change a few times per second, and the debug overlay throttles its text refresh for that reason.
+
+## D-024: Tooling setup (T0)
+- **Decision:**
+  - ESLint uses `typescript-eslint` (type-aware `recommendedTypeChecked`) and `eslint-config-prettier`, so ESLint checks correctness and Prettier owns formatting.
+  - `noUncheckedIndexedAccess` is on.
+  - `npm run lint` also runs `prettier --check`, so formatting is enforced by the standard check.
+  - Prettier skips Markdown, so hand-written docs are never rewritten.
+  - `build` type-checks before bundling, so Vercel refuses a build with type errors.
+  - Node ≥ 22.12, because Vitest 5 requires it.
+- **Alternatives:** plain ESLint without type information; formatting rules in ESLint; letting Prettier format docs.
+- **Why:**
+  - Type-aware linting catches unhandled promises and unsafe `any` flows, which matter around camera, mic and model loading.
+  - `noUncheckedIndexedAccess` makes `points[i]` possibly `undefined`, catching off-by-one bugs in landmark and trace code at compile time. It costs a few explicit checks in loops.
+
+## D-025: Layer boundaries are enforced by lint (T0)
+- **Decision:** ESLint's built-in `no-restricted-imports` and `no-restricted-globals` rules, set per folder, block:
+  - core importing any layer;
+  - perception importing presentation, scenes or spells;
+  - recognition importing presentation, scenes or the effect registry;
+  - scenes importing MediaPipe or the tracker/speech wrappers, or touching `SpeechRecognition`.
+- **Alternatives:** rely on review; `eslint-plugin-boundaries` (another dependency).
+- **Why:** The CLAUDE.md rules become a failing check instead of something to remember, with no new dependency. "Layers talk only through the bus" can't be fully checked this way, so review still covers it.
+
+## D-026: Settings validated per field, storage injected (T0)
+- **Decision:** Each settings field is checked on its own; a bad value falls back to that field's default, missing fields are filled in, and unknown fields are dropped. Corrupt JSON or a non-object gives all defaults. Storage is passed in (`KeyValueStore`); `browserStore()` falls back to memory if `localStorage` is blocked, and a failed save returns `false`.
+- **Alternatives:** discard the whole saved object on any problem; read `localStorage` directly.
+- **Why:** One bad value shouldn't reset the player's volume and language, and adding a setting later shouldn't wipe saved ones. Injected storage keeps the tests free of a browser (no jsdom), and blocked storage (privacy mode, quota) can never crash the app.

@@ -1,0 +1,7 @@
+# Always LF in the repo and the working tree, so Windows checkouts match Prettier.
+* text=auto eol=lf
+
+*.task binary
+*.wasm binary
+*.png binary
+*.jpg binary

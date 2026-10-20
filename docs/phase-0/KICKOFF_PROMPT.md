@@ -9,7 +9,7 @@ git init
 code .
 claude
 ```
-You'll need Node.js 20 or newer and Chrome.
+You'll need Node.js 22.12 or newer (Vitest 5 requires it) and Chrome.
 
 ## 2. First prompt: understand before building
 Paste this:
