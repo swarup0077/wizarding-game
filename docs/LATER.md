@@ -11,3 +11,4 @@ Ideas and features deliberately kept out of the current phase (the scope rule in
 | Gesture velocity as a power signal | Data is already logged in Phase 0. Add per spell where controlled speed should matter (e.g. duel spells) | 3–4 |
 | $P / $Q for multi-stroke runes | Only if rune-style spells are added. Plugs in as another `GestureRecognizer` | If needed |
 | Howler.js for audio files | Only when real recorded sounds replace the synthesized ones | 1+ |
+| Safari support | The reviewer uses Chrome on Mac. Safari's speech recognition and camera behaviour differ and would need their own testing | 1+ |

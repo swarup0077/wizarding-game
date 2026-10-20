@@ -20,7 +20,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 - **Core:** `core/types.ts`, `core/events.ts` (the full `EventMap`), `core/eventBus.ts`, `core/clock.ts`.
 - **Tuning:** `config/tuning.ts`, holding every number named in the spec.
 - **Settings:** `settings/settings.ts` with versioned `localStorage` and a safe fallback on bad data.
-- **Docs and git:** `.gitignore`, and `docs/PROGRESS.md` / `docs/DECISIONS.md` updated.
+- **Docs and git:** `.gitignore` (ignores `public/mediapipe/`; the model in `public/models/` is committed in T4), `.gitattributes` (LF line endings, so Windows checkouts don't break Prettier), and `docs/PROGRESS.md` / `docs/DECISIONS.md` updated.
 
 **Tests:**
 - The event bus delivers events and supports unsubscribing.
@@ -29,17 +29,19 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 
 **Manual check:** `npm run dev` shows a blank dark page, and all checks pass.
 
-## T1: Stage, render loop, debug overlay skeleton
-**Covers:** FR-17 (background only), FR-23 (fps only), NFR-1
+## T1: Stage, render loop, debug overlay skeleton, hosting
+**Covers:** FR-17 (background only), FR-23 (fps only), NFR-1, NFR-7
+**Before starting:** ask which host to use (default Vercel).
 **Build:**
-- `presentation/canvasStage.ts`: full-window canvas, DPR-aware, resize-safe, one `requestAnimationFrame` loop.
+- `presentation/canvasStage.ts`: full-window canvas, DPR-aware with the DPR cap from `tuning.ts`, resize-safe, one `requestAnimationFrame` loop.
 - `View`: normalized ↔ pixel conversion.
-- The background: night-blue, vignette, procedural stone texture rendered once to an offscreen canvas.
+- The background: dimly lit night-blue, vignette, procedural stone texture rendered once to an offscreen canvas.
 - `scenes/scene.ts` and an empty `practiceStage.ts`.
 - `dev/debugOverlay.ts`, toggled with D, showing render fps.
+- **Hosting:** deploy the static build over HTTPS so this and every later task can be reviewed from a link. Record the URL in `PROGRESS.md`.
 
 **Tests:** `View` conversions round-trip.
-**Manual check:** the background looks good, resizing stays crisp, and D shows render fps ≥ 55.
+**Manual check:** the background looks good, resizing stays crisp, and D shows render fps ≥ 55. The deployed link shows the same page in Chrome over HTTPS. If you can, check it on a DPR-2 Mac too, and record the chosen DPR cap.
 
 ## T2: Mouse wand and the trail
 **Covers:** FR-6, FR-18
@@ -60,13 +62,13 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 - `hud/toasts.ts`, driven by `system:message`.
 - On camera failure, offer mouse mode.
 
-**Tests:** the error-mapping function (pure) maps each DOMException name to the correct message.
+**Tests:** the error-mapping function (pure) maps each DOMException name to the correct message, including the macOS "blocked by the operating system" case.
 **Manual check:** the preview is mirrored. Deny the camera → the message appears and mouse mode is offered.
 
 ## T4: Hand tracking
 **Covers:** FR-2, FR-20 (skeleton), FR-23 (tracking fps, detection ms, delegate)
 **Build:**
-- `scripts/copy-mediapipe.mjs` (run from `postinstall`) and `scripts/fetch-model.mjs`.
+- `scripts/copy-mediapipe.mjs` (run from `postinstall`) and `scripts/fetch-model.mjs` (run once; commit the downloaded model).
 - `perception/handTracker.ts`: GPU delegate with CPU fallback, detection via `requestVideoFrameCallback`, monotonic timestamps; emits `hand:landmarks`.
 - Skeleton drawn in the PiP.
 - The low-fps tip.
@@ -75,7 +77,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Manual check:**
 - The skeleton tracks the hand.
 - The debug overlay shows tracking fps, detection ms and the delegate.
-- Record the numbers in `PROGRESS.md`.
+- Record the numbers in `PROGRESS.md`, plus MediaPipe's startup console lines (AC-12).
 - If render fps drops below 55, stop and propose a Web Worker.
 
 ## T5: Wand point, pinch, hand lost
@@ -83,21 +85,23 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Build:**
 - `perception/oneEuroFilter.ts` and `pinchDetector.ts`.
 - `perception/handWandSource.ts`:
-  - The One Euro filter is applied to the wand point only. The pinch ratio uses unfiltered landmarks (FR-4).
-  - Velocity is computed from the filtered point.
+  - The One Euro filter is applied to the wand point only. The pinch ratio uses unfiltered landmarks, measured in 3D from `worldLandmarks` (FR-4).
+  - Velocity is computed from the filtered point, in square units per second.
   - Emits `wand:*`, `hand:found` and `hand:lost`.
 - Hand-lost indicator: red PiP border plus a "Hand lost" label.
-- Debug overlay: the pinch-ratio bar with live threshold sliders, live One Euro sliders (min cutoff, beta), the raw vs filtered dot, and current velocity.
+- Debug overlay: pinch-ratio bars for both the 3D world ratio and the aspect-corrected 2D ratio, with live threshold sliders; live One Euro sliders (min cutoff, beta), the raw vs filtered dot, and current velocity.
 
 **Tests:**
 - One Euro: a stationary noisy signal gets smoothed; a fast step is followed with little lag.
 - Pinch detector: hysteresis and 2-frame confirmation.
+- Pinch ratio: the same hand pose gives the same ratio when rotated within the 4:3 frame.
 - Hand lost: emitted after 300 ms of no hand.
 - Velocity: computed from filtered points, and stays near zero for a still, noisy hand.
 
 **Manual check:**
 - The wand dot is steady when the hand is still, with no visible drag when you move fast. Tune the One Euro sliders and record the final values.
 - Pinch and release feel crisp.
+- Compare the two pinch ratios, keep the steadier one, retune both thresholds, and log the choice in `DECISIONS.md` (follows D-015).
 - 60 s of waving without pinching starts no traces.
 
 ## T6: Calibration
@@ -114,17 +118,19 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Covers:** FR-8, FR-9, FR-10, FR-16, FR-20 (spell cards), AC-5 (defaults)
 **Build:**
 - **Recognition:**
-  - `recognition/traceCollector.ts`, `traceValidator.ts`, `defaultTemplates.ts`.
+  - `recognition/traceCollector.ts` (adds the stage `aspect` to each trace), `traceValidator.ts`, `defaultTemplates.ts`, and a helper that converts a trace to square units.
   - `gestureRecognizer.ts`: the interface and the shared accept rule.
-  - `protractor.ts` (primary) and `dollarOne.ts` (baseline), both orientation-sensitive with rotation clamped to ±30°.
-- **Spells:** `spells/spellTypes.ts` (including `PowerRule`), `spells.ts` (3 spells, effects not yet implemented), `spellRegistry.ts`.
+  - `protractor.ts` (primary) and `dollarOne.ts` (baseline), both orientation-sensitive with rotation limited to each spell's `rotationToleranceDeg`.
+- **Spells:** `spells/spellTypes.ts` (including `PowerRule` and `rotationToleranceDeg`), `spells.ts` (3 spells, effects not yet implemented), `spellRegistry.ts`.
 - **HUD:** `hud/spellCards.ts`, drawing each shape from its template.
 - **Debug:** ranked gesture scores, plus a dev toggle to switch recognizer live.
 
 **Tests:** run every recognizer test against **both** recognizers through the interface.
 - Each default shape, with noise added (±3%), random scale, small rotation (±10°) and different speeds, is recognized correctly ≥ 98% of 200 synthetic runs.
 - A mirrored or reversed shape is *not* accepted as the original.
-- Rotation beyond ±30° is not "corrected" into a match.
+- Rotation beyond a spell's tolerance is not "corrected" into a match (Leviosa and Incendio at ±30°).
+- Lumos (±180°) is accepted from any start point, and an **anticlockwise circle is still rejected**.
+- A circle that looks round on a 16:9 stage is recognized (the square-units conversion works).
 - The accept rule's threshold and margin.
 - Validator edge cases.
 
@@ -172,7 +178,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Build:**
 - `recognition/castFusion.ts`, a pure state machine driven by events plus the injectable clock.
 - `recognition/quality.ts`: a weighted sum over the signals named in each spell's `PowerRule`.
-- `hud/resultCard.ts`.
+- `hud/resultCard.ts`, which updates its hint on `spell:miscastHeard`.
 - Gesture-only mode.
 
 **Tests:**
@@ -180,6 +186,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 - A disagreeing **interim** result never causes `voice-mismatch`. Only a final result does.
 - Window expiry.
 - A voice match is used at most once.
+- An unrecognized shape fizzles immediately. A spell heard within the window afterwards emits `spell:miscastHeard` with no second fizzle, and that voice match can still pair with a new trace. In gesture-only mode: the fizzle only.
 - Quality formula and tier boundaries.
 - A spell with custom `power` weights scores differently, with no change to `quality.ts`.
 - **The AC-13 dummy-spell test.**
@@ -191,7 +198,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Build:**
 - `spells/effectRegistry.ts`.
 - `scenes/props.ts` and the three props.
-- `presentation/effects/`: `fizzle.ts`, `lumos.ts` (darkness overlay with a light cut-out revealing the hidden message), `leviosa.ts` (spring follow, bob, tap-to-drop, fall and sway), `incendio.ts` (flame burst; cobweb burn-away and respawn).
+- `presentation/effects/`: `fizzle.ts`, `lumos.ts` (a warm light circle that brightens the dim stage and reveals the hidden message), `leviosa.ts` (spring follow, bob, tap-to-drop, fall and sway), `incendio.ts` (flame burst; cobweb burn-away and respawn).
 - Tier scaling for all of them.
 
 **Tests:**
@@ -213,10 +220,10 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Build:**
 - The intro screen and permission sequence.
 - `dev/settingsPanel.ts`, wiring every setting live.
-- Wand-hand preference: ignore the other hand.
+- Wand-hand preference: the other hand counts as no hand (swap MediaPipe's handedness labels for the unmirrored frame).
 - A consistent visual style for all HUD panels.
 
-**Tests:** the settings schema, defaults and migration.
+**Tests:** the settings schema, defaults and migration; the handedness mapping.
 **Manual check:** a fresh profile (clear site data) reaches the stage in under 20 s. Then work through every fallback in AC-10.
 
 ## T14: Playtest and acceptance
@@ -228,8 +235,9 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
    - If you can, add test samples from a second person and from different lighting before deciding.
 2. Tune thresholds in `tuning.ts` based on the results, logging each change in `DECISIONS.md`.
 3. Fix anything that fails.
-4. Profile a 5-minute session: no console errors, no memory growth.
-5. Write `docs/phase-0/REPORT.md`:
+4. Profile a 5-minute session: no console errors from our code, no memory growth.
+5. Before sharing the link, open the deployed build in Chrome on a Mac and run AC-15 (AC-1, AC-7, AC-9, and AC-10's camera and mic parts). Record the results.
+6. Write `docs/phase-0/REPORT.md`:
    - what works;
    - the measured numbers;
    - what felt magical and what didn't;

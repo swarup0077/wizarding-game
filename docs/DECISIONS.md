@@ -57,3 +57,48 @@ Each entry: the decision, the alternatives, and why. Add new ones at the bottom 
 ## D-013: Smoothing only on the wand point; pinch uses raw landmarks
 - **Alternatives:** filter everything.
 - **Why:** The wand point needs smoothness; the pinch needs instant response. Hysteresis handles pinch noise without adding lag.
+
+## D-014: Shapes and distances are measured in square units (spec review A)
+- **Decision:** Events keep normalized [0,1] coordinates. Anything that measures a shape, distance or speed first converts to square units (x × stage aspect). `trace:complete` carries the `aspect`.
+- **Alternatives:** measure in raw normalized space; make the normalized space itself square (letterboxed); rely on $1's per-axis scaling.
+- **Why:**
+  - On a 16:9 screen, a circle that looks round is an ellipse 0.56 as wide as tall in normalized space. Protractor scores even a perfect on-screen circle only about 0.83 against the round template (threshold 0.80), which leaves no room for hand jitter.
+  - $1 scales each axis separately, so it would be immune by accident and the benchmark would favour it for the wrong reason.
+  - Hit radii (Leviosa reach, Incendio burst) would be ellipses on screen.
+  - Carrying the aspect in the event keeps recognition free of screen code and lets recorded traces replay correctly.
+
+## D-015: Pinch ratio from 3D world landmarks (provisional; spec review A)
+- **Decision:** Compute distance(4, 8) / distance(0, 9) in 3D from MediaPipe's `worldLandmarks`. If that is too noisy, fall back to 2D landmarks with x scaled by the video's width / height. T5 decides from the debug bar, which shows both, and retunes the 0.28 / 0.40 thresholds.
+- **Alternatives:** 2D normalized landmarks (the original spec); aspect-corrected 2D only.
+- **Why:** In the 4:3 camera image, a 2D normalized ratio shifts by roughly 25–33% depending on hand angle, and it inflates when the hand points toward the camera (the palm looks shorter). That is a natural wand grip. World landmarks are metric 3D, so neither effect applies. They are model estimates and may be noisier, so real data decides.
+
+## D-016: One tracked hand; the wrong hand counts as no hand (spec review B)
+- **Alternatives:** `numHands: 2`, then pick the preferred hand.
+- **Why:** Phase 0 needs one wand hand. With two hands allowed, MediaPipe keeps running palm detection to look for the second hand, which is costly on integrated graphics. The cost of this choice: if both hands are in view, tracking may lock onto the wrong one, and the player has to lower it. MediaPipe's handedness labels assume a mirrored image, so they are swapped for raw webcam frames.
+
+## D-017: The stage is always dim; Lumos brightens it (spec review C)
+- **Alternatives:** a normally lit stage that goes dark while Lumos is active; a fully dark stage.
+- **Why:** A light spell that darkens everything else would feel backwards. A dim stage keeps the feather and cobweb visible for the other spells and leaves the hidden message for Lumos to reveal.
+
+## D-018: Unrecognized shapes fizzle at once; a late spell name updates the hint (spec review D)
+- **Decision:** `spell:miscast` `unrecognized-shape` fires immediately. If a spell is heard within the window afterwards, fusion emits the new `spell:miscastHeard` event and the result card names that spell in its hint. No second fizzle plays, and a hint never uses up the voice match. Gesture-only mode: immediate fizzle, no hint update.
+- **Alternatives:** wait out the 1.5 s window before fizzling (the first proposal); ignore voice for unrecognized shapes.
+- **Why:** Instant feedback matters more than a perfect hint, and a fizzle that arrives 1.5 s late feels laggy. A separate follow-up event keeps the hint useful without delaying the fizzle or playing a second effect. Leaving the voice match unused means a quick retry while saying the word can still cast.
+
+## D-019: "No console errors" means errors from our code (spec review E)
+- **Alternatives:** keep the strict wording; filter or patch MediaPipe's logging.
+- **Why:** MediaPipe's wasm prints its own startup lines, some through `console.error`, and we don't control them. Filtering console methods could hide real errors. Instead, T4 lists the known lines in `PROGRESS.md` and AC-12 excludes them.
+
+## D-020: Per-spell rotation tolerance (Lumos 180°)
+- **Decision:** `SpellDef.rotationToleranceDeg`: Lumos 180, Leviosa 30, Incendio 30. Protractor clamps to each template's tolerance. $1 searches within it, with a coarse scan before golden-section search above 45°.
+- **Alternatives:** one global ±30° (Lumos must start at 12 o'clock); fully rotation-invariant recognizers.
+- **Why:** For a circle, starting at another clock position is the same as rotating it, so ±30° rejected a circle started at 3 o'clock. Direction still matters for the other spells. Rotation can never mirror a shape, so an anticlockwise circle still fails as Lumos, and a T7 test proves it. The tolerance is spell data, so each future spell picks its own.
+
+## D-021: HTTPS static hosting from T1; Chrome on Mac supported (spec review F)
+- **Decision:** From T1, deploy the static build over HTTPS (host chosen in T1, default Vercel). Supported: Chrome on Windows (development laptop) and Chrome on macOS (the reviewer's Retina MacBook, DPR 2). Edge on Windows is second; Safari is not supported. AC-15 checks the deployed link on a Mac before it is shared.
+- **Alternatives:** deploy only at the end of Phase 0; local demos only.
+- **Why:** The professor reviews from a link on a MacBook. Deploying from T1 makes every task reviewable and surfaces deploy problems (HTTPS, asset paths, macOS camera and mic permissions) early instead of at the end. DPR 2 means 4× the pixels per frame, so FR-17 caps the device pixel ratio with a tunable value.
+
+## D-022: Commit the hand model
+- **Alternatives:** download it at install or build time; load it from Google's CDN at runtime.
+- **Why:** Deploys never depend on a third-party download succeeding, and builds are reproducible. About 8 MB in git is acceptable. FR-2 already rules out a runtime CDN. The wasm files stay generated from `node_modules`, whose version the lockfile pins.

@@ -26,6 +26,7 @@ Before writing any code, read, in this order:
 
 ## Environment
 - Windows laptop with integrated graphics only (no dedicated GPU). Target browser is Chrome; Edge is second.
+- The deployed build must also work in Chrome on macOS (Retina, DPR 2): the reviewer opens it from a link. Safari is not supported.
 - Voice recognition needs internet: Chrome sends audio to Google's speech service.
 - Scripts: `npm run dev`, `npm test`, `npm run build`, `npm run lint`, `npm run typecheck`.
 
@@ -45,5 +46,5 @@ Before writing any code, read, in this order:
 ## Code style
 - Small files (aim for under 250 lines), one responsibility each. Named exports only, no default exports.
 - All tunable numbers live in `src/config/tuning.ts`. No magic numbers inline.
-- Perception and recognition use normalized coordinates in [0,1] (origin top-left, mirrored like a selfie). Screen pixels appear only in presentation.
+- Perception and recognition use normalized coordinates in [0,1] (origin top-left, mirrored like a selfie). Screen pixels appear only in presentation. Convert to square units (x × aspect) before measuring a shape, distance or speed (see `docs/ARCHITECTURE.md`).
 - No `any`. Every exported function gets a one-line doc comment.

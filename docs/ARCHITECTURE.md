@@ -76,11 +76,11 @@ src/
     templateRecorder.ts
     settingsPanel.ts
 public/
-  models/hand_landmarker.task
+  models/hand_landmarker.task  committed to git, so deploys never download it
   mediapipe/wasm/            copied from node_modules by scripts/copy-mediapipe.mjs
 scripts/
   copy-mediapipe.mjs         postinstall: copy wasm files into public/
-  fetch-model.mjs            downloads the hand model once
+  fetch-model.mjs            downloads the hand model once (the file is then committed)
 bench/
   gestures.bench.test.ts     recognizer benchmark (npm run bench:gestures, not part of npm test)
 tests/fixtures/gestures/     recorded real webcam samples (committed)
@@ -95,6 +95,9 @@ export type SpellId = string;                          // 'lumos' | 'leviosa' | 
 export type Tier = 'weak' | 'normal' | 'strong';
 ```
 
+### Normalized vs square units
+Normalized coordinates are stretched: x is a fraction of the stage width and y a fraction of the stage height, so a circle that looks round on a 16:9 screen is an ellipse 0.56 as wide as it is tall. Anything that measures a shape, a distance or a speed converts to **square units** first: x × aspect, y unchanged, where aspect = stage width / stage height. One square unit is the stage height. `trace:complete` carries `aspect`, so recognition never needs the screen and recorded traces replay correctly. Other modules that measure distances (wand velocity, prop hit tests) get the aspect passed in; only presentation reads it from the canvas.
+
 ## Event contracts
 Payloads must be **plain JSON-serializable data** (no DOM objects, no functions). This is what lets multiplayer send `spell:cast` over the network later without changes.
 
@@ -106,7 +109,7 @@ export interface EventMap {
   'wand:move':           { p: Vec2; t: number; source: 'hand' | 'mouse' };
   'wand:pinchStart':     { p: Vec2; t: number };
   'wand:pinchEnd':       { p: Vec2; t: number };
-  'trace:complete':      { trace: TracePoint[]; durationMs: number; t: number };
+  'trace:complete':      { trace: TracePoint[]; aspect: number; durationMs: number; t: number }; // aspect = stage width / height
   'trace:cancelled':     { reason: 'too-short' | 'too-long' | 'hand-lost'; t: number };
   'gesture:recognized':  { spellId: SpellId | null; score: number;
                            ranked: { spellId: SpellId; score: number }[];
@@ -119,6 +122,7 @@ export interface EventMap {
                            breakdown: { shape: number; voice: number | null; speed: number }; t: number };
   'spell:miscast':       { reason: 'unrecognized-shape' | 'voice-mismatch' | 'no-voice';
                            target: Vec2; heard?: string; spellId?: SpellId; t: number };
+  'spell:miscastHeard':  { spellId: SpellId; heard: string; t: number }; // heard after an unrecognized-shape fizzle: updates the hint only
   'spell:ended':         { spellId: SpellId; t: number };            // sustained spells
   'system:message':      { level: 'info' | 'warn' | 'error'; text: string;
                            action?: { id: string; label: string } };
@@ -135,6 +139,7 @@ export interface SpellDef {
   aliases: string[];               // common mis-hearings, e.g. 'loomis'
   pronunciation: string;           // shown on the spell card: 'LOO-mos'
   templateIds: string[];           // default gesture templates
+  rotationToleranceDeg: number;    // how far a trace may be rotated to match: 30 for most, 180 for a circle
   kind: 'instant' | 'sustained';
   tags: string[];                  // 'light' | 'fire' | 'levitate' ...
   effectId: string;                // key into the effect registry
@@ -194,5 +199,8 @@ All `localStorage` keys are versioned: `wg.settings.v1`, `wg.calibration.v1`, `w
 
 ## Main loop
 - **Rendering:** one `requestAnimationFrame` loop drives scene update, effects, trail, HUD and debug overlay.
-- **Hand tracking:** runs per new video frame (`requestVideoFrameCallback`), decoupled from rendering, so a slow detection never stalls the trail. The renderer interpolates between tracking samples.
+- **Hand tracking:** runs per new video frame (`requestVideoFrameCallback`), on its own schedule rather than the render loop's. On the main thread, detection still takes CPU time from rendering; if that pulls render fps below 55, detection moves to a Web Worker (FR-2). The renderer interpolates between tracking samples.
 - **Time:** comes from the injectable clock (`performance.now()` in the browser, fake in tests).
+
+## Deployment
+A static build (`npm run build` → `dist/`) served over HTTPS from T1 on (host chosen in T1, default Vercel). Nothing is downloaded at build time: the hand model is committed and the wasm files come from `node_modules`. Asset URLs are built from Vite's `import.meta.env.BASE_URL`, so the build also works from a sub-path. Supported browsers: Chrome on Windows and on macOS (Retina, DPR 2); Edge on Windows second.

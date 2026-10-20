@@ -15,14 +15,19 @@ Every module built here (perception, recognition, fusion, spell data, trail, eff
 
 ## Functional requirements
 
+### Coordinates
+Events carry normalized [0,1] coordinates: x is a fraction of the stage width, y a fraction of the stage height. On a non-square stage that space is stretched, so anything that measures a shape, a distance or a speed first converts to **square units**: x × aspect (aspect = stage width / stage height), y unchanged. One square unit is the stage height. Every distance in this spec (trace path length, the Leviosa reach, the Incendio burst radius) is in square units. See `ARCHITECTURE.md`.
+
 ### Input and perception
 - **FR-1 Camera.**
-  - Request a user-facing camera at 640×480 (ideal) and show a mirrored PiP preview with the hand skeleton drawn on it.
-  - Handle each failure (permission denied, no camera, camera in use by another app, insecure context) with its own plain-language message and an offer to switch to mouse mode.
+  - Request a user-facing camera at 640×480 and 30 fps (both ideal) and show a mirrored PiP preview with the hand skeleton drawn on it.
+  - Handle each failure (permission denied, blocked by the operating system, no camera, camera in use by another app, insecure context) with its own plain-language message and an offer to switch to mouse mode. "Blocked by the operating system" happens on macOS when Chrome has no camera access in System Settings → Privacy & Security → Camera; the message says where to turn it on.
 - **FR-2 Hand tracking.**
   - Use MediaPipe `HandLandmarker` (`@mediapipe/tasks-vision`) in `VIDEO` running mode with `numHands: 1`.
+  - If a wand-hand preference is set (FR-22) and the tracked hand is the other one, treat it as no hand (FR-7). MediaPipe's handedness labels assume a mirrored image, so swap them for raw webcam frames before comparing.
   - Try the `GPU` delegate first and fall back to `CPU` automatically, recording which one is active in the debug overlay.
   - Serve the wasm files and model locally from `public/` (no CDN at runtime). Model source: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task` (confirm against the official MediaPipe web guide).
+  - The model file is committed to git, so builds and deploys never download it. The wasm files are copied from `node_modules` at install time (versions pinned by `package-lock.json`).
   - Run detection once per new video frame, decoupled from rendering.
   - If tracking fps stays below 20 for 3 s, show a tip: improve lighting, keep your hand 40–80 cm from the camera.
   - If average detection time blocks rendering below 55 fps, propose (don't silently do) moving detection to a Web Worker.
@@ -30,11 +35,12 @@ Every module built here (perception, recognition, fusion, spell data, trail, eff
   - The wand point is always the midpoint of the thumb tip (landmark 4) and index tip (landmark 8), so it doesn't jump when a pinch starts.
   - Smooth it with a One Euro filter (parameters in `tuning.ts`).
   - Map it through the calibration box to [0,1] screen space, mirrored like a selfie.
-  - Compute wand velocity from the **filtered** point (never from raw landmarks, which amplify jitter). Phase 0 only shows it in the debug overlay and records it with each trace; it becomes a power signal in later phases.
+  - Compute wand velocity from the **filtered** point (never from raw landmarks, which amplify jitter), in square units per second. Phase 0 only shows it in the debug overlay and records it with each trace; it becomes a power signal in later phases.
 - **FR-4 Pinch.**
   - Pinch has its own signal path. The ratio is computed from **unfiltered** landmarks, so smoothing never makes a pinch feel delayed; hysteresis and 2-frame confirmation handle the noise instead.
   - Pinch ratio = distance(4, 8) / distance(0, 9), which normalizes by palm size.
-  - Pinch starts when the ratio is below 0.28 for 2 consecutive frames and ends when it is above 0.40 for 2 consecutive frames (hysteresis).
+  - Measure both distances in 3D from MediaPipe's `worldLandmarks` (metric, centred on the hand), so the ratio doesn't shift with the camera's 4:3 shape or when the hand points toward the camera. If that proves too noisy, fall back to 2D landmarks with x scaled by the video's width / height. T5 decides from the debug bar, which shows both ratios.
+  - Pinch starts when the ratio is below 0.28 for 2 consecutive frames and ends when it is above 0.40 for 2 consecutive frames (hysteresis). These starting values assume 2D landmarks; T5 retunes them for the chosen method.
   - Both thresholds live in `tuning.ts` and are adjustable live from the debug overlay.
 - **FR-5 Calibration.**
   - Record wand points for 3 s and take the 5th–95th percentile range on each axis.
@@ -47,24 +53,24 @@ Every module built here (perception, recognition, fusion, spell data, trail, eff
 ### Recognition
 - **FR-8 Traces.** A trace is the points between `wand:pinchStart` and `wand:pinchEnd`. It is valid only if all three hold:
   - duration is 150–3000 ms;
-  - path length is ≥ 0.12 (normalized units);
+  - path length is ≥ 0.12 (square units);
   - it has ≥ 12 points.
 
   Too short → cancel silently. Too long → cancel with the hint "Shorter and smoother".
 - **FR-9 Gesture recognizers: Protractor (primary) and $1 (baseline), behind one interface.**
-  - **Interface.** `GestureRecognizer` has `addTemplate(spellId, points)` and `rank(trace) → { spellId, score }[]`, where score is in [0,1] and higher is better. The accept rule is shared and lives outside both recognizers:
+  - **Interface.** `GestureRecognizer` has `addTemplate(spellId, points, rotationToleranceDeg)` and `rank(points) → { spellId, score }[]`, where score is in [0,1] and higher is better. Points are in square units (the caller converts the trace using its `aspect`). The accept rule is shared and lives outside both recognizers:
     - accept the best spell only if its score is ≥ that recognizer's threshold (in `tuning.ts`, initial 0.80 for both);
     - **and** it beats the next different spell by ≥ 0.05;
     - otherwise the result is "unrecognized".
-  - Both recognizers are **orientation-sensitive**, because direction matters (a flick up is not a flick down). Neither rotates the gesture to its indicative angle; rotation is limited to ±30°.
+  - Both recognizers are **orientation-sensitive**, because direction matters (a flick up is not a flick down). Neither rotates the gesture to its indicative angle. Rotation is limited to the spell's `rotationToleranceDeg` (FR-16): ±30° for most spells, ±180° for Lumos, because a circle started at another clock position is just the circle rotated. Rotation can never turn a shape into its mirror image, so an anticlockwise circle is still not Lumos.
   - **Protractor:**
     1. Resample to 32 points (tunable) and translate the centroid to the origin.
     2. Flatten to a vector and normalize it to unit length.
-    3. Compute the closed-form optimal rotation angle, then clamp it to ±30°.
+    3. Compute the closed-form optimal rotation angle, then clamp it to ± the template's tolerance.
     4. Cosine similarity at the clamped angle gives the angular distance; score = 1 − distance / (π/2).
   - **$1:**
     1. Resample to 64 points, scale to a reference square, translate the centroid to the origin.
-    2. Run a golden-section search within ±30°.
+    2. Find the best angle within ± the template's tolerance with a golden-section search. Above ±45°, do a coarse scan first, because golden-section search assumes a single minimum.
     3. Score = 1 − d / (0.5 · √(2 · size²)).
   - A spell's score is its best-matching template.
   - Protractor is the default. A dev setting switches recognizers live. The final default is picked in T14 by the benchmark (FR-24).
@@ -88,7 +94,7 @@ Every module built here (perception, recognition, fusion, spell data, trail, eff
   - Language comes from settings (default `en-US`, `en-IN` offered; test both).
   - Restart automatically on `end` while voice is enabled, with a short backoff (Chrome stops after silence).
   - Handle each error:
-    - `not-allowed` → message + offer gesture-only mode.
+    - `not-allowed` → message + offer gesture-only mode. The message also covers macOS, where Chrome may lack microphone access in System Settings → Privacy & Security → Microphone.
     - `network` → "Voice needs internet" + offer gesture-only mode.
     - `no-speech` → restart quietly.
   - An unsupported browser (e.g. Firefox) gets a message and gesture-only mode.
@@ -108,8 +114,10 @@ Every module built here (perception, recognition, fusion, spell data, trail, eff
   | Spell X | Spell X | `spell:cast` X |
   | Spell X | Spell Y (final result) | `spell:miscast` `voice-mismatch` |
   | Spell X | Nothing | Voice required → `spell:miscast` `no-voice` after the window. Gesture-only mode → `spell:cast` X. |
-  | Unrecognized | Spell Y | `spell:miscast` `unrecognized-shape` |
+  | Unrecognized | Anything | `spell:miscast` `unrecognized-shape`, immediately (see below) |
   | Nothing (no trace) | Anything | Nothing happens. Talking alone never casts. |
+
+  - **Unrecognized shapes fizzle at once.** If a spell was already heard within the window, the miscast includes it (`spellId`, `heard`) so the hint can name it. If a spell is heard within the window *after* the fizzle, fusion emits `spell:miscastHeard` and the result card updates its hint to name that spell. No second fizzle plays. A hint never uses up a voice match, so it can still pair with a quick retry. Gesture-only mode ignores voice: the same immediate fizzle, with no hint update.
 - **FR-15 Quality = skill.** Power comes from how *precisely* you cast, not how fast you wave or how loudly you shout.
   - shapeN = clamp((score − threshold) / (1 − threshold))
   - voiceN = clamp((score − 0.70) / 0.25)
@@ -117,15 +125,16 @@ Every module built here (perception, recognition, fusion, spell data, trail, eff
   - q is a weighted sum of these **signals**, with weights taken from the spell's `power` data (FR-16). The default is shape 0.6, voice 0.3, speed 0.1; in gesture-only mode it is shape 0.85, speed 0.15.
   - Tier: q < 0.35 → weak; q < 0.75 → normal; otherwise strong. Weak still casts; it is just smaller.
   - Later phases add new signals (velocity, mic volume) with per-spell weights, without changing this module's logic.
-- **FR-16 Spells as data.** The three spells are `SpellDef` entries (see `ARCHITECTURE.md`), each with its own `power` weights (all three use the defaults in Phase 0). Effects are looked up by `effectId` in the effect registry. Use these ideal durations:
-  - Lumos: 400–1500 ms
-  - Leviosa: 500–1600 ms
-  - Incendio: 400–1400 ms
+- **FR-16 Spells as data.** The three spells are `SpellDef` entries (see `ARCHITECTURE.md`), each with its own `power` weights (all three use the defaults in Phase 0). Effects are looked up by `effectId` in the effect registry. Use these values:
+  - Lumos: ideal duration 400–1500 ms, rotation tolerance 180°
+  - Leviosa: ideal duration 500–1600 ms, rotation tolerance 30°
+  - Incendio: ideal duration 400–1400 ms, rotation tolerance 30°
 
 ### Presentation
 - **FR-17 Practice stage.**
-  - Full-window canvas, sharp on high-DPI screens and safe to resize.
+  - Full-window canvas, sharp on high-DPI screens and safe to resize. The device pixel ratio is capped by a value in `tuning.ts`, chosen in T1 by measuring on the Windows laptop and checking on a DPR-2 Retina MacBook, so integrated graphics keep ≥ 55 fps.
   - The look: deep night-blue background with a soft vignette and a procedural stone texture (no image assets).
+  - The stage is always dimly lit: the props are visible but dim, and the notice board's message can't be seen.
   - Three props:
     1. A **notice board** in the dark, whose original hidden message ("The light reveals what the dark hides.") is visible only inside Lumos light.
     2. A **feather** resting on a ledge.
@@ -139,16 +148,16 @@ Every module built here (perception, recognition, fusion, spell data, trail, eff
 - **FR-19 Effects.** Size and intensity scale with tier.
   - **Lumos** (sustained):
     - A light orb attaches to the wand point and follows it for 10 s, or until another spell is cast.
-    - The stage is otherwise dark. The light cuts a soft circle through the darkness and reveals the notice board's text where it passes.
+    - The orb casts a warm, soft circle of light that brightens the dim stage around it and reveals the notice board's text where it passes. It never darkens the rest of the stage.
     - Orb radius by tier: small, medium or large.
   - **Wingardium Leviosa** (sustained):
-    - If the wand point at cast time is within 0.12 of the feather, the feather lifts and follows the wand with a spring and a gentle bob.
+    - If the wand point at cast time is within 0.12 square units of the feather, the feather lifts and follows the wand with a spring and a gentle bob.
     - It lasts up to 8 s (3 s on a weak cast), or until a quick pinch tap (under 250 ms) drops it. When dropped it falls and sways down.
     - A weak cast follows sluggishly.
     - A miss gives a soft sparkle and the hint "Nothing to lift there".
   - **Incendio** (instant):
     - A flame burst of particles appears at the wand point.
-    - If the cobweb is within the burst radius, it burns: a glowing edge eats inward over 1.2 s, embers rise, and then it's gone. It returns after 5 s, since this is practice.
+    - If the cobweb is within the burst radius (square units, in `tuning.ts`), it burns: a glowing edge eats inward over 1.2 s, embers rise, and then it's gone. It returns after 5 s, since this is practice.
     - A subtle warm pulse washes over the screen.
   - **Fizzle** (every miscast): a grey smoke puff and a sputter of sparks at the wand point.
 - **FR-20 HUD.**
@@ -168,7 +177,7 @@ Every module built here (perception, recognition, fusion, spell data, trail, eff
   - Voice language
   - Voice required on/off
   - Input mode: hand / mouse
-  - Wand hand: any / left / right
+  - Wand hand: any / left / right (the other hand counts as no hand; FR-2)
   - Guide shapes on/off
   - Master volume
   - Recalibrate, record templates, reset everything
@@ -198,6 +207,10 @@ Every module built here (perception, recognition, fusion, spell data, trail, eff
 - **NFR-4 Tests.** Every pure module has unit tests, and `npm test` finishes in under 10 s.
 - **NFR-5 Code.** Follows `CLAUDE.md`.
 - **NFR-6 Privacy.** Our code never stores or sends video or audio. The intro screen says in one line that voice recognition is handled by the browser's speech service.
+- **NFR-7 Deployment and browsers.**
+  - The game is a static site served over HTTPS (camera and mic need a secure context). The host is chosen in T1 (default Vercel); from T1 on, every task can be reviewed from a link.
+  - Builds never download anything: the hand model is committed and the wasm files come from `node_modules`.
+  - Supported: Chrome on Windows (the development laptop, integrated graphics) and Chrome on macOS (the reviewer's Retina MacBook, DPR 2). Edge on Windows is second. Safari is not supported.
 
 ## Acceptance criteria
 - **AC-1** On a fresh load in Chrome, getting from "Begin" to the practice stage (permissions + calibration) takes under 20 s with only on-screen instructions.
@@ -217,9 +230,10 @@ Every module built here (perception, recognition, fusion, spell data, trail, eff
   - denying the mic gives a message and offers gesture-only mode;
   - in Firefox, voice shows "unsupported" and gesture-only mode works.
 - **AC-11** If the hand leaves the frame mid-trace, the trace is cancelled and nothing is cast.
-- **AC-12** `typecheck`, `lint`, `test` and `build` pass with zero errors or warnings, and a 5-minute session produces no console errors.
+- **AC-12** `typecheck`, `lint`, `test` and `build` pass with zero errors or warnings, and a 5-minute session produces no console errors from our code. Known startup lines that MediaPipe's wasm prints (some appear as errors) are listed in `PROGRESS.md` and don't count.
 - **AC-13** A unit test registers a dummy 4th spell (data + template + effect) and runs it through recognition and fusion end to end, **without editing any recognition or fusion source file**.
 - **AC-14** The benchmark runs on ≥ 20 real webcam test samples per spell and ≥ 30 negatives. The chosen recognizer meets AC-5's accuracy with a false-accept rate ≤ 5% on negatives. Results and the choice are recorded in `PROGRESS.md` and `DECISIONS.md`.
+- **AC-15** The deployed link, opened in Chrome on a Mac, passes AC-1, AC-7, AC-9 and AC-10 (its camera and mic parts; the Firefox part is checked on Windows). Checked once, before the link is shared.
 
 ## Out of scope for Phase 0
 - 3D and Three.js, physics engines, player movement
@@ -227,4 +241,5 @@ Every module built here (perception, recognition, fusion, spell data, trail, eff
 - Nox, Alohomora, Reparo
 - LLMs, a backend, multiplayer, Whisper
 - Touch and mobile support (mouse is enough)
+- Safari (Chrome on Mac is supported; see NFR-7)
 - Mic-volume (RMS) power, velocity as a power signal, $P / multi-stroke gestures, Howler.js (see `docs/LATER.md`)
