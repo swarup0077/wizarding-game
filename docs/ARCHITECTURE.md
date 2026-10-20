@@ -25,7 +25,9 @@ What exists in Phase 0: Input, Perception, Recognition, a minimal Spell engine, 
 ```
 src/
   main.ts                    bootstrap: bus, settings, sources, scene, loop
-  config/tuning.ts           every tunable number
+  config/tuning.ts           re-exports every tunable number (import from here)
+  config/tuning/             one file per layer: input, perception, recognition,
+                             presentation, scenes, dev
   core/
     eventBus.ts              typed pub/sub
     events.ts                EventMap (all event names + payloads)

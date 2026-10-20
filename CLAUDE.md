@@ -45,6 +45,6 @@ Before writing any code, read, in this order:
 
 ## Code style
 - Small files (aim for under 250 lines), one responsibility each. Named exports only, no default exports.
-- All tunable numbers live in `src/config/tuning.ts`. No magic numbers inline.
+- All tunable numbers live in `src/config/tuning/`, one file per layer (`input`, `perception`, `recognition`, `presentation`, `scenes`, `dev`). `src/config/tuning.ts` re-exports them all; always import from `config/tuning`, never from a layer file (lint enforces this). Put a new number in its layer's file. No magic numbers inline.
 - Perception and recognition use normalized coordinates in [0,1] (origin top-left, mirrored like a selfie). Screen pixels appear only in presentation. Convert to square units (x × aspect) before measuring a shape, distance or speed (see `docs/ARCHITECTURE.md`).
 - No `any`. Every exported function gets a one-line doc comment.

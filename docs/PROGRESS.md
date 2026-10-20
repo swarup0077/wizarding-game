@@ -29,6 +29,28 @@ One entry per task. Newest at the bottom.
 | AC-14 Benchmark on real samples, false accepts ≤ 5% | – | |
 | AC-15 Deployed link passes AC-1, 7, 9, 10 in Chrome on a Mac | – | |
 
+## How to measure render fps
+`scripts/measure-fps.mjs` measures render fps on this machine's real GPU and prints a Markdown table to paste into a task entry. It has no dependencies (D-040).
+
+1. Plug the laptop in and turn off Chrome's Energy Saver; both cap frame rates.
+2. `npm run build`
+3. `npm run measure:fps`. It starts `vite preview`, opens a **visible** Chrome window with a throwaway profile, runs each case for 20 s after startup, then closes everything. Don't minimize the window. It may sit behind other windows, but a minimized window isn't rendered.
+4. Copy the printed table into the task's **Numbers**.
+
+The cases:
+
+| Run | What it measures |
+|---|---|
+| `native-idle` / `native-drawing` | This screen as it is (here: DPR 1.25), stage only / continuous drawing with the 30 Hz preview |
+| `retina-cap1.5-…` / `retina-cap2-…` | Chrome device emulation at 1440×900 CSS px and DPR 2 (the reviewer's MacBook, 2880×1800 device px) at each DPR cap |
+
+Options: `--seconds 30` (longer runs), `--only retina-cap2-drawing` (selected runs), `--query "demo=loop&handRate=1"` (extra URL query for every run, e.g. a spell demo in later tasks), `--url https://wizarding-game.vercel.app` (measure the deployed site; nothing is started). `CHROME_PATH` overrides where Chrome is found.
+
+Reading the table:
+- **fps** is capped by the display (60 here), so it can't show headroom.
+- **Longest frame gap** shows stalls: anything above about 25 ms is a visible hitch.
+- **Our work per frame** is the headroom: our update and draw time out of the 16.7 ms frame budget.
+
 ## Spec review before T0 (2026-10-21)
 **Done:** Reviewed the Phase 0 docs and applied fixes A–F: square units for shapes and distances, a 3D pinch ratio (provisional), the wand-hand rule, a dim stage, immediate fizzles with a late hint, the AC-12 wording, per-spell rotation tolerance, and HTTPS hosting from T1 with Chrome on Mac supported (new NFR-7 and AC-15), and HUD text as HTML over the canvas. Hosting: Vercel connected to GitHub. Moved the git repo into the project folder.
 **Verify:** Read D-014 to D-023 in `DECISIONS.md`; `git log` shows the repo rooted in this folder.
@@ -129,3 +151,13 @@ Overall brightness is lower. The 99th percentile rose slightly because a few sto
 - The M key moved to T5 (no hand source to switch to yet).
 - Gold and grey releases are a dev preview until T7 connects recognition.
 - Your real-mouse screenshot is still the judge of "magical".
+
+## T2 follow-up: tuning per layer, fps script, T7 note (2026-10-21)
+**Done:**
+- `src/config/tuning.ts` split into `src/config/tuning/` (input, perception, recognition, presentation, scenes, dev). `tuning.ts` now only re-exports them. A one-off check confirmed every export and value is identical. Lint rejects imports from a layer file (D-039). CLAUDE.md rule updated.
+- `scripts/measure-fps.mjs` and `npm run measure:fps` (see "How to measure render fps" at the top). A full run reproduced the T2 numbers: 60 fps, no frame gap over 18.1 ms, work 0.7–0.9 ms per frame while drawing at DPR 2.
+- TASKS.md: T7 tests and the T8 benchmark now include hand-rate traces (30 Hz, fast end of each spell's ideal duration; 25 Hz reported too). T7 opens with a question about FR-8's 12-point minimum.
+
+**Verify:** `npm run typecheck && npm run lint && npm test` pass; `npm run build && npm run measure:fps` prints the table.
+
+**Open issues:** FR-8 `minPoints` vs hand-rate traces (decide at the start of T7).

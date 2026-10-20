@@ -136,8 +136,11 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 - Rotation beyond a spell's tolerance is not "corrected" into a match (Leviosa and Incendio at ±30°).
 - Lumos (±180°) is accepted from any start point, and an **anticlockwise circle is still rejected**.
 - A circle that looks round on a 16:9 stage is recognized (the square-units conversion works).
+- **Hand-rate traces (added after T2):** each default shape, drawn at the **fast end of its spell's `idealDurationMs`** (Lumos 400 ms, Leviosa 500 ms, Incendio 400 ms) and **sampled at 30 Hz**, is still recognized correctly ≥ 98% of 200 runs. Build these traces the way the hand will deliver them: 120 Hz input with minimum-jerk timing, passed through `input/handRateSampler.ts`. At this rate the zigzag's corners come out rounded (seen in the T2 screenshots), so this proves recognition survives that. Repeat at 25 Hz (the NFR-1 tracking minimum) and report the result, even if it fails.
 - The accept rule's threshold and margin.
 - Validator edge cases.
+
+**Open question to settle at the start of T7:** FR-8 requires ≥ 12 points, but a 400 ms trace at 30 Hz has only about 12–13 points, and at 25 Hz about 10. So the validator could reject a well-cast Lumos or Incendio at the fast end of its ideal duration before recognition ever sees it. Options: lower `minPoints` (e.g. to 8), or count points after resampling. Decide with the 30 Hz and 25 Hz test results.
 
 **Manual check:** with the mouse, then with the hand, draw each shape 20 times. Record the counts (AC-5, default templates).
 
@@ -149,6 +152,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 - `dev/templateRecorder.ts` UI with three modes: template / test sample / negative. Export writes fixture JSON.
 - The "my templates only" setting.
 - `bench/gestures.bench.test.ts`: both recognizers × both template sets. It reports accuracy per spell, a confusion matrix, the false-accept rate on negatives, and mean time per trace.
+  - **Also (added after T2):** a synthetic hand-rate set: each spell at the fast end of its `idealDurationMs`, sampled at 30 Hz through `input/handRateSampler.ts`, reported as its own rows next to the recorded samples. Recorded webcam samples are already at the hand rate; this set covers the fastest casts.
 
 **Tests:**
 - Store round-trip, and rejection of malformed JSON.

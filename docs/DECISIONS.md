@@ -210,3 +210,17 @@ Each entry: the decision, the alternatives, and why. Add new ones at the bottom 
 - **Decision:** The stage hides the system cursor (`cursor: none`); the glowing dot is the cursor.
 - **Alternatives:** show both.
 - **Why:** The dot is drawn a few milliseconds in the past (D-034), so an arrow would visibly lead it, and an arrow on a magic stage breaks the feel. The debug panel keeps a normal cursor.
+
+## D-039: Tuning numbers in one file per layer, behind one index (T2 follow-up)
+- **Decision:** The numbers live in `src/config/tuning/{input,perception,recognition,presentation,scenes,dev}.ts`. `src/config/tuning.ts` re-exports them all, and code always imports from `config/tuning`. Lint rejects imports from a layer file.
+- **Alternatives:** keep one file (it had reached 329 lines and grows every task); let code import layer files directly.
+- **Why:** Files stay under the 250-line guideline and a layer's numbers are found in one place. A single import path means a number can move between files without touching any code that uses it.
+
+## D-040: A dependency-free fps measurement script (T2 follow-up)
+- **Decision:** `scripts/measure-fps.mjs` (`npm run measure:fps`) turns the T2 measurement method (D-033) into a repeatable tool:
+  - It starts `vite preview` (Vite's own script, run with Node, no shell).
+  - It opens a visible Chrome with a throwaway profile and anti-throttling flags.
+  - It runs native and emulated-Retina cases at caps 1.5 and 2, idle and drawing.
+  - It prints a Markdown table, using Node's built-in `fetch` and `WebSocket` to talk to Chrome's DevTools protocol.
+- **Alternatives:** Puppeteer or Playwright (a large dependency); reading the debug overlay by hand (slow, and it can't see frame gaps).
+- **Why:** T4, T11 and T14 all need the same fps numbers, measured the same way. Frame gaps and work time per frame show what fps alone hides: stalls, and how much of the frame budget is left.

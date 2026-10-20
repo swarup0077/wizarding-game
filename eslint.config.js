@@ -2,9 +2,18 @@ import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
 
+// Tuning numbers are imported from the `config/tuning` index, never from its layer files,
+// so moving a number between files never breaks an import (CLAUDE.md).
+const tuningIndexOnly = {
+  group: ['**/config/tuning/*'],
+  message: "Import tuning numbers from 'config/tuning' (the index), not its layer files.",
+};
+
 // Layer boundaries from CLAUDE.md, enforced here so they can't drift.
+// Every per-folder rule repeats the tuning rule, because a later rule replaces an earlier one.
 const layerImportBan = (folders, extra = []) => ({
   patterns: [
+    tuningIndexOnly,
     ...folders.map((folder) => ({
       group: [`**/${folder}`, `**/${folder}/**`],
       message: `This layer must not import from ${folder} (CLAUDE.md layer boundaries).`,
@@ -26,6 +35,7 @@ export default tseslint.config(
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
+      'no-restricted-imports': ['error', layerImportBan([])],
       'no-restricted-exports': [
         'error',
         {
@@ -46,8 +56,22 @@ export default tseslint.config(
     rules: { 'no-restricted-exports': 'off' },
   },
   {
-    files: ['eslint.config.js'],
+    files: ['eslint.config.js', 'scripts/**/*.mjs'],
     ...tseslint.configs.disableTypeChecked,
+  },
+  {
+    // Node scripts (plain JavaScript, run with `node`). Globals listed by hand: no extra package.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        fetch: 'readonly',
+        WebSocket: 'readonly',
+      },
+    },
   },
   {
     files: ['src/core/**'],
