@@ -30,6 +30,9 @@ const RUNS = [
   { name: 'retina-cap1.5-drawing', retina: true, query: 'dprCap=1.5&demo=loop&handRate=1' },
   { name: 'retina-cap2-idle', retina: true, query: 'dprCap=2' },
   { name: 'retina-cap2-drawing', retina: true, query: 'dprCap=2&demo=loop&handRate=1' },
+  // The UI kit gallery: every HUD component, filters and animations, over the stage (T2b).
+  { name: 'native-ui-gallery', query: 'dev=ui' },
+  { name: 'retina-cap2-ui-gallery', retina: true, query: 'dprCap=2&dev=ui' },
 ];
 const PREVIEW_PORT = 4173;
 const STARTUP_SKIP_MS = 2000;

@@ -6,7 +6,7 @@ Prove that casting spells with your real hand and voice **feels magical and work
 Every module built here (perception, recognition, fusion, spell data, trail, effects pipeline) is kept for the final game. Only the practice stage is throwaway.
 
 ## Player flow
-1. **Intro screen.** Title, one line ("Your hand is your wand. Your voice is the spell."), a privacy line (see NFR-6), and a "Begin" button. The button click also unlocks audio.
+1. **Intro: an acceptance letter.** A sealed parchment letter on the stage, the address in green handwriting. Clicking the wax seal opens it (the click also unlocks audio). Inside: the game title, one line ("Your hand is your wand. Your voice is the spell."), a privacy line (see NFR-6), and a wax-seal "Begin". Every line is original wording (see `docs/ART_DIRECTION.md`).
 2. **Permissions.** Camera, then microphone. Any failure → plain message + fallback (FR-1, FR-12).
 3. **Calibration** (first run only): "Wave your hand around comfortably for 3 seconds."
 4. **Practice stage.** Spell cards on the left, three props on the stage, mic indicator top-right, webcam PiP bottom-right.
@@ -163,7 +163,8 @@ Events carry normalized [0,1] coordinates: x is a fraction of the stage width, y
 - **FR-20 HUD.**
   - All HUD text (result card, spell cards, mic indicator, toasts, the PiP's "Hand lost" label) is HTML/CSS layered over the canvas, never drawn on it, so the DPR cap (FR-17) never blurs it. Spell-card shapes are inline SVG for the same reason. Text that belongs to the world, like the notice board's hidden message, stays on the canvas because light effects reveal it.
   - **Result card** (top centre, 2 s):
-    - On a cast: spell name, quality %, and tier word (Weak / Good / Strong), with a small line showing shape · voice · speed.
+    - On a cast: spell name and a **grade** instead of a tier word: strong = **O** (Outstanding), normal = **E** (Exceeds Expectations), weak = **A** (Acceptable). Beneath, in small type: quality % and a line showing shape · voice · speed.
+    - On a miscast: grade **P** (Poor) with the friendly reason below.
     - On a miscast: a short friendly reason, e.g. "Shape unclear: try a rounder circle", "Heard 'loomis' but drew Incendio", "Say the spell as you cast".
   - **Mic indicator** (top-right): listening state, plus the last words heard (interim text in grey).
   - **Webcam PiP** (bottom-right, about 20% width): mirrored, with the hand skeleton and the pinch state shown. Hidden in mouse mode.
@@ -213,6 +214,10 @@ Events carry normalized [0,1] coordinates: x is a fraction of the stage width, y
   - The game is a static site served over HTTPS (camera and mic need a secure context). Hosting is Vercel, connected to the GitHub repo: each push to the main branch updates the production link, so from T1 on every task can be reviewed from a link.
   - Builds never download anything: the hand model is committed and the wasm files come from `node_modules`.
   - Supported: Chrome on Windows (the development laptop, integrated graphics) and Chrome on macOS (the reviewer's Retina MacBook, DPR 2). Edge on Windows is second. Safari is not supported.
+- **NFR-8 Assets and look.**
+  - Every HUD and UI element uses the UI kit (`src/ui/`) and its tokens, following `docs/ART_DIRECTION.md`.
+  - Only original, CC0 or OFL assets. Fonts are self-hosted woff2 with their licence files committed. Textures are procedural (CSS, SVG filters); no image files.
+  - All text passes WCAG AA contrast on the surface it sits on (4.5:1 body, 3:1 large). Handwriting is held to the body-text bar. Enforced by a unit test over the theme.
 
 ## Acceptance criteria
 - **AC-1** On a fresh load in Chrome, getting from "Begin" to the practice stage (permissions + calibration) takes under 20 s with only on-screen instructions.

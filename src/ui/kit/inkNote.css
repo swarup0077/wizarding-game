@@ -1,0 +1,80 @@
+/* Ink-note toast: a small torn slip; the words bleed into the paper, then settle. */
+.wg-ink-note {
+  position: relative;
+  max-width: 420px;
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-5);
+  color: var(--ink-900);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-style: italic;
+  line-height: 1.35;
+  isolation: isolate;
+  transform: rotate(-0.6deg);
+}
+.wg-ink-note__paper {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--parchment-100);
+  background-image: var(--tex-grain), var(--tex-stain);
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.5),
+    inset 0 0 14px rgba(110, 75, 30, 0.3);
+  filter: url(#wg-rough-edge);
+}
+
+/* The margin mark says how serious the note is. */
+.wg-ink-note::before {
+  content: '';
+  position: absolute;
+  left: var(--space-3);
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--ink-700);
+}
+.wg-ink-note--warn::before {
+  background: var(--gold-600);
+}
+.wg-ink-note--error::before {
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  background: radial-gradient(circle at 35% 30%, var(--wax-300), var(--wax-700));
+}
+
+/* Ink bleed: a blurred copy of the words (rendered once) fades out while the sharp words
+   fade in. Only opacity animates. */
+.wg-ink-note__text {
+  position: relative;
+  margin: 0;
+}
+.wg-ink-note__text::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  color: var(--ink-700);
+  filter: url(#wg-ink-bleed);
+  opacity: 0;
+  pointer-events: none;
+}
+.wg-ink-in .wg-ink-note__text {
+  animation: wg-ink-in var(--dur-ink) var(--ease-ink) 120ms both;
+}
+.wg-ink-in .wg-ink-note__text::after {
+  animation: wg-bleed-out calc(var(--dur-ink) * 1.4) var(--ease-ink) both;
+}
+@keyframes wg-bleed-out {
+  from {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.wg-ink-note__action {
+  margin-left: var(--space-3);
+}

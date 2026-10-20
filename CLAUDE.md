@@ -48,3 +48,4 @@ Before writing any code, read, in this order:
 - All tunable numbers live in `src/config/tuning/`, one file per layer (`input`, `perception`, `recognition`, `presentation`, `scenes`, `dev`). `src/config/tuning.ts` re-exports them all; always import from `config/tuning`, never from a layer file (lint enforces this). Put a new number in its layer's file. No magic numbers inline.
 - Perception and recognition use normalized coordinates in [0,1] (origin top-left, mirrored like a selfie). Screen pixels appear only in presentation. Convert to square units (x × aspect) before measuring a shape, distance or speed (see `docs/ARCHITECTURE.md`).
 - No `any`. Every exported function gets a one-line doc comment.
+- Every HUD and UI element is built from the UI kit (`src/ui/`) and its tokens, following `docs/ART_DIRECTION.md`: no raw colours, fonts or one-off styles. New text colours go into the contrast test. Check the IP guardrails before committing art, sound or text.

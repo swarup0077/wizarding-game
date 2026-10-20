@@ -1,0 +1,145 @@
+/* Wax-seal button: a poured seal with an original mark, and a label in Cinzel. */
+.wg-seal-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
+  border: 0;
+  background: none;
+  color: var(--ink-900);
+  font-family: var(--font-label);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.wg-seal {
+  position: relative;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  transition: transform var(--dur-stamp) var(--ease-ink);
+}
+
+/* The wax: a lit dome, darker at the rim, made irregular by the wax-rim filter. */
+.wg-seal__wax {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 30%, rgba(255, 190, 170, 0.55), transparent 32%),
+    radial-gradient(circle at 50% 50%, var(--wax-300) 0%, var(--wax-500) 55%, var(--wax-700) 100%);
+  box-shadow:
+    0 3px 6px rgba(0, 0, 0, 0.45),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.35);
+  filter: url(#wg-wax-rim);
+}
+
+/* The stamped ring and the pressed mark. */
+.wg-seal__wax::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 1px 1px rgba(0, 0, 0, 0.55),
+    0 1px 0 rgba(255, 200, 180, 0.25);
+}
+.wg-seal__mark {
+  position: absolute;
+  inset: 9px;
+  color: rgba(42, 4, 6, 0.82);
+  filter: drop-shadow(0 1px 0 rgba(255, 190, 170, 0.35));
+}
+.wg-seal__mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* A candle glint across the wax, shown on hover (opacity only, so it is cheap). */
+.wg-seal::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  z-index: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 26%, rgba(255, 236, 190, 0.85), transparent 26%),
+    radial-gradient(
+      circle at 50% 50%,
+      transparent 58%,
+      rgba(248, 227, 166, 0.55) 72%,
+      transparent 80%
+    );
+  opacity: 0;
+  transition: opacity var(--dur-stamp) var(--ease-ink);
+  pointer-events: none;
+}
+
+/* Hover: the seal tilts toward the light and glints. Press: it is stamped down. */
+.wg-seal-button:hover .wg-seal,
+.wg-seal-button.is-hover .wg-seal {
+  transform: rotate(-8deg) scale(1.06);
+}
+.wg-seal-button:hover .wg-seal::before,
+.wg-seal-button.is-hover .wg-seal::before {
+  opacity: 1;
+}
+.wg-seal-button:active .wg-seal,
+.wg-seal-button.is-pressed .wg-seal {
+  transform: scale(0.88);
+}
+.wg-seal-button:active .wg-seal__wax,
+.wg-seal-button.is-pressed .wg-seal__wax {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    inset 0 2px 6px rgba(0, 0, 0, 0.55);
+}
+.wg-seal-button:focus-visible {
+  outline: 2px solid var(--gold-400);
+  outline-offset: 4px;
+  border-radius: 28px;
+}
+.wg-seal-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* Quiet: a secondary action written in ink, with a hand-drawn underline. */
+.wg-ink-link {
+  padding: var(--space-1) 0;
+  border: 0;
+  background: none;
+  color: var(--ink-700);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-style: italic;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.wg-ink-link:hover,
+.wg-ink-link.is-hover {
+  color: var(--ink-900);
+}
+.wg-ink-link:focus-visible {
+  outline: 2px solid var(--gold-400);
+  outline-offset: 3px;
+}
+
+/* On the night stage instead of parchment; back to ink inside any parchment. */
+.wg-on-night .wg-seal-button,
+.wg-on-night .wg-ink-link {
+  color: var(--parchment-100);
+}
+.wg-on-night .wg-parchment .wg-seal-button,
+.wg-on-night .wg-parchment .wg-ink-link,
+.wg-on-night .wg-ink-note .wg-ink-link {
+  color: var(--ink-900);
+}

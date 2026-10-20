@@ -1,0 +1,93 @@
+/* Parchment panel: the base of every card, message and letter. */
+.wg-parchment {
+  position: relative;
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  color: var(--ink-900);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: 1.4;
+  isolation: isolate;
+}
+
+/* The paper is its own layer, so the rough-edge filter never touches the text. */
+.wg-parchment__paper {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: var(--radius-page);
+  background-color: var(--parchment-100);
+  background-image:
+    var(--tex-grain), var(--tex-stain),
+    radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(140, 101, 55, 0.35) 100%);
+  box-shadow:
+    var(--shadow-lift),
+    var(--shadow-inset-page),
+    inset 0 0 4px 1px var(--parchment-edge);
+  filter: url(#wg-rough-edge);
+}
+
+.wg-parchment__title {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-title);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-ligatures: none;
+  color: var(--ink-900);
+}
+
+.wg-parchment__rule {
+  display: block;
+  width: 70%;
+  height: 10px;
+  margin: 0 0 var(--space-3);
+  color: var(--ink-700);
+}
+
+.wg-parchment__body {
+  margin: 0 0 var(--space-4);
+}
+
+.wg-parchment__fine {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--ink-700);
+}
+
+.wg-parchment__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* Entrance: the page unrolls from its top edge, then the ink settles in. */
+.wg-unroll {
+  transform-origin: 50% 0;
+  animation: wg-unroll var(--dur-unroll) var(--ease-unroll) both;
+}
+.wg-unroll > :not(.wg-parchment__paper) {
+  animation: wg-ink-in var(--dur-ink) var(--ease-ink) calc(var(--dur-unroll) * 0.45) both;
+}
+@keyframes wg-unroll {
+  from {
+    transform: scaleY(0.08);
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+@keyframes wg-ink-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

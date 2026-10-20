@@ -161,3 +161,33 @@ Overall brightness is lower. The 99th percentile rose slightly because a few sto
 **Verify:** `npm run typecheck && npm run lint && npm test` pass; `npm run build && npm run measure:fps` prints the table.
 
 **Open issues:** FR-8 `minPoints` vs hand-rate traces (decide at the start of T7).
+
+## T2b: Art direction and UI kit (2026-10-21)
+**Done:**
+- `docs/ART_DIRECTION.md`: palette, typography, materials, motion rules, spell colour identities, sound direction, IP guardrails and a pre-commit checklist.
+- Fonts (OFL, self-hosted, licences committed): Cinzel Decorative, Cinzel, EB Garamond, Pinyon Script (163 KB); IM Fell English and Petit Formal Script for comparison only.
+- `src/ui/`: `theme.css` (tokens, house pairs, `--house-primary/secondary` neutral gold), `materials.css` (procedural paper grain, stains, gilt), `filters.ts`, `ornaments.ts` (original corner flourish, star and star-over-wand seal marks), `brand.ts` (`GAME_TITLE` placeholder), `grades.ts`, `contrast.ts`, and the kit: parchment panel, wax-seal button (+ ink link), ink-note toast, gilded frame, spellbook page, grade badge. Reduced motion respected.
+- `?dev=ui` gallery: every component in every state over the stage, the palette with contrast ratios, a type specimen and the font comparison.
+- Lint: core, perception and recognition may not import `ui`. CLAUDE.md rule added. SPEC (letter intro, FR-20 grades, NFR-8), TASKS (T2b; T3, T7, T9, T10, T13 use the kit), ARCHITECTURE, VISION updated.
+
+**Verify:**
+1. `npm run dev`, open http://localhost:5173/?dev=ui and scroll through: palette, type, panels and the acceptance letter, seal buttons (normal, hover, pressed, disabled), ink notes, the gilded frame, grade badges, spellbook pages. Click "Replay entrances" to see unroll, ink-bleed and quill.
+2. Pick one font per row in "Font comparison" and tell me; the unused files in `public/fonts/compare/` get deleted.
+3. Hover a real seal button: it tilts and glints. Press it: it stamps down.
+
+**Numbers:**
+- 147 tests (~0.8 s), including the contrast checks (every text colour on every parchment shade) and the token check.
+- Visual iteration: 3 rounds (the agreed cap).
+- `measure:fps` with the gallery open, 10 s per run after startup:
+
+| Run | Canvas (device px) | fps mean / min | Longest frame gap | Seconds with a gap > 25 ms | Our work per frame |
+|---|---|---|---|---|---|
+| native-idle | 1920×970 | 60.0 / 60 | 17.6 ms | 0 of 11 | 0.15 ms |
+| native-ui-gallery | 1920×970 | 59.0 / 49 | 199.9 ms | 1 of 11 | 0.11 ms |
+| retina-cap2-ui-gallery | 2880×1800 | 59.7 / 57 | 50.3 ms | 2 of 11 | 0.13 ms |
+
+A follow-up run with timestamps showed every long gap inside the first 2.2 s after load: the stage background, every gallery component, fonts, filters and entrance animations all paint for the first time at once. After that, no gap over 17.1 ms. One parchment panel added mid-session at emulated Retina costs a single dropped frame (a 33.1 ms gap), so HUD panels are built once and reused (D-046).
+
+**Open issues:**
+- Font choice per comparison row (yours).
+- The gallery's "SPELLBOOK" heading still shows Cinzel Decorative's joined "OO" even with ligatures off; it is a glyph variant of the font. If it bothers you in spell names or titles, those can use plain Cinzel.

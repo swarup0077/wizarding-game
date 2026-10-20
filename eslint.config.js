@@ -87,6 +87,7 @@ export default tseslint.config(
           'presentation',
           'dev',
           'settings',
+          'ui',
         ]),
       ],
     },
@@ -94,7 +95,10 @@ export default tseslint.config(
   {
     files: ['src/perception/**'],
     rules: {
-      'no-restricted-imports': ['error', layerImportBan(['presentation', 'scenes', 'spells'])],
+      'no-restricted-imports': [
+        'error',
+        layerImportBan(['presentation', 'scenes', 'spells', 'ui']),
+      ],
     },
   },
   {
@@ -103,7 +107,7 @@ export default tseslint.config(
       'no-restricted-imports': [
         'error',
         layerImportBan(
-          ['presentation', 'scenes'],
+          ['presentation', 'scenes', 'ui'],
           [
             {
               group: ['**/spells/effectRegistry', '**/spells/effectRegistry.*'],

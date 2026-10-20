@@ -56,13 +56,29 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 - Hold the mouse button and draw. The trail must look *magical*, not like a line tool. Send me a screenshot.
 - Re-measure render fps while drawing continuously at DPR 2, at `?dprCap=1.5` and `?dprCap=2`. Record both in `PROGRESS.md`. (Done with Chrome's device emulation at 1440×900 and DPR 2, the Retina pixel count; see D-033.)
 
-## T3: Camera and webcam PiP
-**Covers:** FR-1, FR-20 (PiP), AC-10 (camera part)
+## T2b: Art direction and UI kit
+**Covers:** FR-20 (look of every HUD element), NFR-8
+**Goal:** every HUD element from T3 on uses one consistent, unmistakably Harry Potter–inspired style, built only from original or CC0/OFL assets.
 **Build:**
+- `docs/ART_DIRECTION.md`: palette, typography, materials, motion rules, a colour per spell, sound direction, IP guardrails.
+- Fonts in `public/fonts/` (woff2, latin subset, OFL licences committed): Cinzel Decorative (titles, spell names), Cinzel (small labels), EB Garamond (body), Pinyon Script (handwriting).
+- `src/ui/theme.css` (design tokens, including `--house-primary` / `--house-secondary`, neutral gold until the Sorting), `materials.css` (procedural textures), `filters.ts` (SVG filters), `ornaments.ts` (original flourishes and the star or wand seal mark), `brand.ts` (`GAME_TITLE` placeholder; T13 fills it in).
+- The kit (`src/ui/kit/`): parchment panel, wax-seal button (plus a quiet ink link), ink-note toast, ornate gilded frame, spellbook page, grade badge.
+- `src/ui/grades.ts`: tier → grade (O/E/A), miscast → P.
+- `?dev=ui` gallery showing every component in every state, the palette with contrast ratios, a type specimen and a font comparison.
+
+**Tests:** grade mapping; every `var(--x)` used in a stylesheet is defined; text/background contrast for every text colour on every parchment shade (the green handwriting at the body-text bar); spellbook shape geometry.
+**Manual check:** open `?dev=ui` and judge every component; pick one font per comparison row.
+
+## T3: Camera and webcam preview
+**Covers:** FR-1, FR-20 (preview, toasts), AC-10 (camera part)
+**Build** (with the T2b kit; see the T3 plan for error kinds and recovery):
 - `input/camera.ts`, with a distinct error for each failure type.
-- `hud/webcamPip.ts`: mirrored preview.
-- `hud/toasts.ts` (HTML), driven by `system:message`.
+- `hud/webcamPip.ts`: the mirrored preview inside the **gilded frame** (a moving portrait). `pointer-events: none`.
+- The camera card: a **parchment panel** with **wax-seal** Retry and a quiet "Use the mouse instead" link.
+- `hud/toasts.ts`: **ink-note** toasts, driven by `system:message`.
 - On camera failure, offer mouse mode.
+- Build each HUD panel once and show or hide it with opacity, never recreate it. Its filtered paper is then painted only once (a fresh panel costs one dropped frame at DPR 2; T2b measurement).
 
 **Tests:** the error-mapping function (pure) maps each DOMException name to the correct message, including the macOS "blocked by the operating system" case.
 **Manual check:** the preview is mirrored. Deny the camera → the message appears and mouse mode is offered.
@@ -125,7 +141,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
   - `gestureRecognizer.ts`: the interface and the shared accept rule.
   - `protractor.ts` (primary) and `dollarOne.ts` (baseline), both orientation-sensitive with rotation limited to each spell's `rotationToleranceDeg`.
 - **Spells:** `spells/spellTypes.ts` (including `PowerRule` and `rotationToleranceDeg`), `spells.ts` (3 spells, effects not yet implemented), `spellRegistry.ts`.
-- **HUD:** `hud/spellCards.ts`: HTML cards, each shape drawn from its template as inline SVG.
+- **HUD:** `hud/spellCards.ts`: one **spellbook page** per spell (UI kit), its shape drawn from the spell's template with the start dot and direction arrow, in the spell's colour identity.
 - **Trail:** on `gesture:recognized`, set the stroke's release outcome (gold if recognized, grey if not), replacing the dev release preview.
 - **Dev:** switch `dev/strokeDemo.ts` to the shapes in `defaultTemplates.ts` and delete `dev/demoShapes.ts`, so each shape is defined once.
 - **Debug:** ranked gesture scores, plus a dev toggle to switch recognizer live.
@@ -170,7 +186,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Build:**
 - `perception/speechListener.ts`: auto-restart with backoff, and per-error handling.
 - `recognition/voiceMatcher.ts`: phonetic normalization, word windows, aliases, and matching only against the allowlist of known spells.
-- `hud/micIndicator.ts` (HTML).
+- `hud/micIndicator.ts`: built from the UI kit (a small parchment tab; heard words in ink, interim words in faded ink; states marked with the kit's colours, not app-style icons).
 - Unmatched-transcript log in the debug overlay.
 
 **Tests:**
@@ -187,7 +203,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Build:**
 - `recognition/castFusion.ts`, a pure state machine driven by events plus the injectable clock.
 - `recognition/quality.ts`: a weighted sum over the signals named in each spell's `PowerRule`.
-- `hud/resultCard.ts` (HTML), which updates its hint on `spell:miscastHeard`.
+- `hud/resultCard.ts`: a **parchment panel** with a **grade badge** (O / E / A, or P for a miscast) and the spell name, with the quality % and the shape · voice · speed line in small type beneath. It updates its hint on `spell:miscastHeard`. It is built once and reused (opacity, not recreation), because it appears after every cast.
 - Gesture-only mode.
 
 **Tests:**
@@ -229,10 +245,11 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 ## T13: Intro flow, settings, polish
 **Covers:** FR-20 (toasts), FR-22, NFR-3, NFR-6, AC-1, AC-10
 **Build:**
-- The intro screen and permission sequence.
-- `dev/settingsPanel.ts`, wiring every setting live.
+- The intro as an **acceptance letter** (UI kit): a sealed parchment; clicking the wax seal opens it (unroll, ink-bleed). The address is in green handwriting. Every line is original wording, never quoted from the books or films. The letter leads into the permission sequence and holds the NFR-6 privacy line.
+- Choose the game title and replace the `GAME_TITLE` placeholder in `src/ui/brand.ts`.
+- `dev/settingsPanel.ts`, wiring every setting live, on a parchment panel.
 - Wand-hand preference: the other hand counts as no hand (swap MediaPipe's handedness labels for the unmirrored frame).
-- A consistent visual style for all HUD panels.
+- Check every HUD element against `docs/ART_DIRECTION.md` (one style, the kit's components only).
 
 **Tests:** the settings schema, defaults and migration; the handedness mapping.
 **Manual check:** a fresh profile (clear site data) reaches the stage in under 20 s. Then work through every fallback in AC-10.

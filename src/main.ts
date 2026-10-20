@@ -11,6 +11,7 @@ import type { ReleaseOutcome } from './presentation/trailColors';
 import { createTrailLayer, type TrailLayer } from './presentation/trailLayer';
 import { createPracticeStage } from './scenes/practiceStage';
 import { browserStore, loadSettings, type Settings } from './settings/settings';
+import { ensureUiFilters } from './ui';
 
 /** What the running game is built from. Later tasks add sources and recognition. */
 export interface App {
@@ -33,6 +34,7 @@ export async function bootstrap(): Promise<App> {
   const settings = loadSettings(browserStore());
   const handRate: HandRatePreview = { enabled: params.get('handRate') === '1' };
   const trail = createTrailLayer(bus);
+  ensureUiFilters();
 
   // The stroke demo is a dev tool: its code is only downloaded when `?demo=` is present.
   let demo: StrokeDemo | null = null;
@@ -64,6 +66,12 @@ export async function bootstrap(): Promise<App> {
 
   const scene = createPracticeStage();
   await scene.load({ bus });
+
+  // The UI kit gallery is a dev tool, downloaded only for `?dev=ui` (T2b).
+  if (params.get('dev') === 'ui') {
+    const { mountUiGallery } = await import('./dev/uiGallery');
+    mountUiGallery(requireElement('hud'));
+  }
 
   const overlay = buildOverlay(stage, dprCap, capOverride !== null, handRate, trail);
   const report = params.get('reportFps') === '1' ? createFpsReporter(stage.frameWorkMs) : null;

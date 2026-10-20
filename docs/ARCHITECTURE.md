@@ -73,11 +73,20 @@ src/
     effects/                 fizzle.ts, lumos.ts, leviosa.ts, incendio.ts
     hud/                     resultCard.ts, micIndicator.ts, webcamPip.ts, spellCards.ts, toasts.ts (HTML/CSS over the canvas)
     audio/sfx.ts             Web Audio synthesized sounds
+  ui/                        the UI kit (part of presentation; docs/ART_DIRECTION.md)
+    theme.css                design tokens and @font-face
+    materials.css            procedural textures
+    filters.ts, ornaments.ts SVG filters; original flourishes and seal marks
+    kit/                     parchment, wax seal, ink note, gilded frame, spellbook page, grade badge
+    grades.ts, contrast.ts   pure: tier → grade; WCAG contrast (theme is checked in tests)
+    brand.ts                 GAME_TITLE placeholder (T13)
   dev/
     debugOverlay.ts
     templateRecorder.ts
     settingsPanel.ts
+    uiGallery.ts             ?dev=ui: every kit component in every state
 public/
+  fonts/                     self-hosted woff2 + OFL licences (NFR-8)
   models/hand_landmarker.task  committed to git, so deploys never download it
   mediapipe/wasm/            copied from node_modules by scripts/copy-mediapipe.mjs
 scripts/

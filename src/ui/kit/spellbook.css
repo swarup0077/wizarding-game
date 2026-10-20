@@ -1,0 +1,110 @@
+/* Spellbook page: one spell per page, its shape drawn in ink with a start dot and arrow. */
+.wg-spellbook-page {
+  --spell-ink: var(--ink-700);
+  --spell-wash: var(--gold-200);
+  position: relative;
+  width: 210px;
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  color: var(--ink-900);
+  font-family: var(--font-body);
+  isolation: isolate;
+}
+.wg-spellbook-page[data-spell='lumos'] {
+  --spell-ink: var(--spell-lumos-ink);
+  --spell-wash: var(--spell-lumos);
+}
+.wg-spellbook-page[data-spell='leviosa'] {
+  --spell-ink: var(--spell-leviosa-ink);
+  --spell-wash: var(--spell-leviosa);
+}
+.wg-spellbook-page[data-spell='incendio'] {
+  --spell-ink: var(--spell-incendio-ink);
+  --spell-wash: var(--spell-incendio);
+}
+
+/* The page: parchment with a darker gutter along the left, like a bound book. */
+.wg-spellbook-page__paper {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 2px 5px 5px 2px;
+  background-color: var(--parchment-100);
+  background-image:
+    var(--tex-grain), var(--tex-stain),
+    linear-gradient(90deg, rgba(110, 75, 30, 0.38), transparent 14%);
+  box-shadow: var(--shadow-lift), var(--shadow-inset-page);
+  filter: url(#wg-rough-edge);
+}
+
+/* A wash of the spell's colour behind the name, like an illuminated heading. */
+.wg-spellbook-page__name {
+  position: relative;
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--ink-900);
+}
+.wg-spellbook-page__name::first-letter {
+  color: var(--spell-ink);
+  font-size: 1.25em;
+}
+.wg-spellbook-page__name::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  right: 30%;
+  top: 30%;
+  height: 60%;
+  z-index: -1;
+  border-radius: 40% 60% 50% 50%;
+  background: radial-gradient(ellipse at 40% 50%, var(--spell-wash), transparent 70%);
+  opacity: 0.6;
+}
+
+.wg-spellbook-page__pronunciation {
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--ink-700);
+}
+
+.wg-spellbook-page__shape {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: var(--space-1) 0;
+}
+.wg-spellbook-page__stroke {
+  fill: none;
+  stroke: var(--ink-900);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wg-spellbook-page__start {
+  fill: var(--ink-red);
+}
+.wg-spellbook-page__arrow {
+  fill: var(--ink-900);
+}
+.wg-spellbook-page__hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-700);
+}
+
+/* Entrance: the shape is drawn in ink, one stroke, as if by a quill. */
+.wg-ink-in .wg-spellbook-page__stroke {
+  stroke-dasharray: 1;
+  animation: wg-quill 1.1s var(--ease-ink) 200ms both;
+}
+@keyframes wg-quill {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}

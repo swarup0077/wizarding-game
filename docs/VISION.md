@@ -43,4 +43,4 @@ If a feature makes the build too complex, cut it now and add it later, after the
 | Extras | House points, local saves | Collectibles, live-weather ceiling |
 
 ## IP note
-This is a personal, non-commercial fan project. Do not use official logos, film music, or actor likenesses. All art, sound, and text in the game are original or CC0, and on-screen text must not quote the books or films.
+This is a personal, non-commercial fan project. Do not use official logos, film music, or actor likenesses. All art, sound, and text in the game are original or CC0 (fonts: OFL), and on-screen text must not quote the books or films. The full guardrails and a pre-commit checklist are in `docs/ART_DIRECTION.md`.

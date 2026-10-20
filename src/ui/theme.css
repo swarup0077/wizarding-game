@@ -1,0 +1,130 @@
+/* Design tokens for every HUD and UI element (docs/ART_DIRECTION.md).
+   Components use these variables only; a raw colour or size in a component is a bug.
+   Text/background pairs are contrast-checked by src/ui/contrast.test.ts. */
+
+@font-face {
+  font-family: 'Cinzel Decorative';
+  src: url('/fonts/cinzel-decorative-400-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Cinzel Decorative';
+  src: url('/fonts/cinzel-decorative-700-latin.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Cinzel';
+  src: url('/fonts/cinzel-latin.woff2') format('woff2');
+  font-weight: 400 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'EB Garamond';
+  src: url('/fonts/eb-garamond-latin.woff2') format('woff2');
+  font-weight: 400 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'EB Garamond';
+  src: url('/fonts/eb-garamond-italic-latin.woff2') format('woff2');
+  font-weight: 400 800;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Pinyon Script';
+  src: url('/fonts/pinyon-script-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  /* Night: the stage and anything that sits directly on it. */
+  --night-950: #04060d;
+  --night-900: #070b1a;
+  --night-800: #0e1530;
+  --night-700: #18224a;
+
+  /* Parchment: light to the darkest shade text may sit on, then the scorched edge. */
+  --parchment-100: #f2e4c4;
+  --parchment-200: #e6d2a8;
+  --parchment-300: #d2b989;
+  --parchment-edge: #8c6537;
+
+  /* Ink: iron-gall brown-black, faded brown, and the green ink of the letter's address. */
+  --ink-900: #2b1c10;
+  --ink-700: #523a24;
+  --ink-green: #1e4a2e;
+  --ink-red: #7a1f18;
+
+  /* Candle gold and gilt. */
+  --gold-200: #f8e3a6;
+  --gold-400: #e2b75a;
+  --gold-600: #b58431;
+  --gold-800: #6e4b17;
+
+  /* Sealing wax. */
+  --wax-300: #b8473d;
+  --wax-500: #8c1c1c;
+  --wax-700: #570e11;
+
+  /* Spell identities (effects and spellbook pages; the trail stays the wand's own gold). */
+  --spell-lumos: #e4ecff;
+  --spell-lumos-ink: #3c5a8a;
+  --spell-leviosa: #c7d6ff;
+  --spell-leviosa-ink: #5a4a8e;
+  --spell-incendio: #ff7a2a;
+  --spell-incendio-ink: #a3361a;
+
+  /* Grades on the result card (FR-20). O is antique gilt, darkened until its letter passes
+     3:1 on the darkest parchment; the badge's bright rim and glow carry the shine. */
+  --grade-o: #825f23;
+  --grade-e: #3f5f7f;
+  --grade-a: #7a5530;
+  --grade-p: #7a1f18;
+
+  /* House pairs, for the Sorting (Phase 2). Until then the house is neutral gold. */
+  --house-scarlet: #7c1518;
+  --house-scarlet-gold: #d3a13a;
+  --house-green: #1d5236;
+  --house-green-silver: #b9c0c7;
+  --house-blue: #1e3766;
+  --house-blue-bronze: #a46d38;
+  --house-yellow: #dcae2b;
+  --house-yellow-black: #1d1a16;
+  --house-primary: var(--gold-600);
+  --house-secondary: var(--gold-800);
+
+  /* Type. */
+  --font-title: 'Cinzel Decorative', 'Cinzel', Georgia, serif;
+  --font-label: 'Cinzel', Georgia, serif;
+  --font-body: 'EB Garamond', Georgia, 'Times New Roman', serif;
+  --font-hand: 'Pinyon Script', 'Segoe Script', cursive;
+  --text-xs: 13px; /* Cinzel caps labels only */
+  --text-sm: 16px; /* smallest body text: EB Garamond has a small x-height */
+  --text-md: 19px;
+  --text-lg: 24px;
+  --text-xl: 32px;
+  --text-hand: 30px; /* script reads small; never below this */
+  --tracking-label: 0.08em;
+
+  /* Space and shape. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 18px;
+  --space-5: 28px;
+  --radius-page: 3px;
+  --shadow-lift: 0 10px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.45);
+  --shadow-inset-page: inset 0 0 38px rgba(110, 75, 30, 0.35);
+
+  /* Motion (ART_DIRECTION.md: ink-bleed, unroll, flicker, seal stamp; never app-style slides). */
+  --ease-ink: cubic-bezier(0.2, 0.7, 0.25, 1);
+  --ease-unroll: cubic-bezier(0.3, 0.9, 0.3, 1);
+  --dur-ink: 700ms;
+  --dur-unroll: 650ms;
+  --dur-stamp: 160ms;
+  --dur-flicker: 3.7s;
+}

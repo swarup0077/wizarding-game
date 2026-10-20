@@ -224,3 +224,38 @@ Each entry: the decision, the alternatives, and why. Add new ones at the bottom 
   - It prints a Markdown table, using Node's built-in `fetch` and `WebSocket` to talk to Chrome's DevTools protocol.
 - **Alternatives:** Puppeteer or Playwright (a large dependency); reading the debug overlay by hand (slow, and it can't see frame gaps).
 - **Why:** T4, T11 and T14 all need the same fps numbers, measured the same way. Frame gaps and work time per frame show what fps alone hides: stalls, and how much of the frame budget is left.
+
+## D-041: One art direction and a UI kit before any HUD work (T2b)
+- **Decision:** `docs/ART_DIRECTION.md` defines the look: palette, type, materials, motion, spell colours, sound, IP guardrails. `src/ui/` implements it as design tokens plus six components (parchment panel, wax-seal button, ink-note toast, gilded frame, spellbook page, grade badge). Every HUD element from T3 on is built from the kit.
+- **Alternatives:** style each HUD element in its own task; a CSS framework.
+- **Why:** HUD pieces built one task at a time drift into several styles. A kit built once, judged once in `?dev=ui`, and enforced by tokens keeps the game looking like one world, and later tasks only assemble.
+
+## D-042: Fonts: Cinzel Decorative, Cinzel, EB Garamond, Pinyon Script, self-hosted (T2b)
+- **Decision:** OFL fonts, latin subset woff2 in `public/fonts/` (163 KB) with their licences committed. Cinzel Decorative for titles and spell names; **plain Cinzel** for small labels and buttons; EB Garamond for body; Pinyon Script for handwriting. IM Fell English and Petit Formal Script sit in `public/fonts/compare/` for the side-by-side comparison in `?dev=ui`; the losers get deleted once you choose.
+- **Alternatives:** Google Fonts CDN (third-party request on every load, and FR-2's no-CDN spirit); Cinzel Decorative everywhere.
+- **Why:** Self-hosting keeps the game offline-capable and private. Cinzel Decorative's swashes blur below about 18 px, so labels use its plain sibling.
+
+## D-043: Textures and ornaments are procedural and original (T2b)
+- **Decision:** Paper grain and stains, gilt streaks and torn edges are SVG noise (inline data URIs and SVG filters); flourishes and seal marks are SVG paths drawn for this project. No image files.
+- **Alternatives:** CC0 texture photos.
+- **Why:** NFR-8 and the IP guardrails are easiest to keep when there is nothing to license. Procedural textures also scale to any DPR, and cost nothing per frame once rendered.
+
+## D-044: Contrast is a unit test, not a review step (T2b)
+- **Decision:** `src/ui/contrast.test.ts` reads the real colour values from `theme.css` and checks every text colour against every parchment shade: 4.5:1 for body, 3:1 for large text. The green handwriting is held to the body bar.
+- **Alternatives:** check by eye; an accessibility audit at the end.
+- **Why:** It caught a real problem straight away: the first gold for the O grade was only 1.75:1 on the darkest parchment. It is now an antique gilt (`#825f23`, 3.06:1); the badge's bright rim and glow carry the shine.
+
+## D-045: Grades are a presentation mapping; tiers stay in the spell code (T2b)
+- **Decision:** `src/ui/grades.ts` maps `strong / normal / weak` to O / E / A, and any miscast to P. Recognition, fusion and quality keep their tier names.
+- **Alternatives:** rename tiers to grades everywhere.
+- **Why:** Grades are a way of showing a result to the player. Keeping them in presentation means the look can change (or a later phase can show something else) without touching the scoring logic.
+
+## D-046: HUD panels are built once and reused (T2b)
+- **Decision:** A HUD panel is created once and shown or hidden with opacity, never rebuilt per use. Filters stay on static layers; animations change only transform and opacity.
+- **Alternatives:** create panels on demand.
+- **Why:** Measured at emulated Retina: a freshly created parchment panel costs one dropped frame (a 33 ms gap) while its filtered paper is first painted. That is fine for a rare camera message but not for the result card after every cast.
+
+## D-047: The game title is a placeholder until T13 (T2b)
+- **Decision:** Everything that shows the title uses `GAME_TITLE` from `src/ui/brand.ts` (now `[Game Title]`). Seals carry an original star or star-over-wand mark.
+- **Alternatives:** pick a working title now.
+- **Why:** The name is still to be decided. One constant means T13 changes one line, and nothing hints at an official name or logo in the meantime.

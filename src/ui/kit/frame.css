@@ -1,0 +1,116 @@
+/* Ornate gilded frame: the webcam preview becomes a moving portrait. */
+.wg-frame {
+  position: relative;
+  margin: 0;
+  padding: 18px;
+  border-radius: 4px;
+  background-color: var(--gold-600);
+  background-image:
+    var(--tex-gilt),
+    linear-gradient(
+      135deg,
+      var(--gold-200) 0%,
+      var(--gold-400) 18%,
+      var(--gold-800) 42%,
+      var(--gold-400) 62%,
+      var(--gold-200) 80%,
+      var(--gold-600) 100%
+    );
+  box-shadow:
+    0 14px 30px rgba(0, 0, 0, 0.6),
+    0 0 0 1px var(--gold-800),
+    inset 0 0 0 2px rgba(255, 240, 200, 0.45),
+    inset 0 0 0 5px var(--gold-800),
+    inset 0 0 0 6px rgba(255, 240, 200, 0.35),
+    inset 0 0 0 10px var(--gold-600),
+    inset 0 0 0 11px var(--gold-800),
+    inset 0 0 0 12px rgba(255, 240, 200, 0.4);
+  pointer-events: none;
+}
+
+/* The painting: inset into the moulding, darkened at the edges like old varnish. */
+.wg-frame__canvas {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--night-800);
+  box-shadow:
+    0 0 0 2px var(--gold-800),
+    inset 0 0 18px rgba(0, 0, 0, 0.6);
+}
+.wg-frame__canvas > video,
+.wg-frame__canvas > canvas,
+.wg-frame__canvas > .wg-frame__placeholder {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.wg-frame__canvas::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(20, 10, 0, 0.55) 100%),
+    linear-gradient(rgba(255, 210, 140, 0.08), rgba(255, 210, 140, 0.08));
+  pointer-events: none;
+}
+
+.wg-frame__corner {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+}
+.wg-frame__corner svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.wg-frame__corner--tl {
+  left: -12px;
+  top: -12px;
+}
+.wg-frame__corner--tr {
+  right: -12px;
+  top: -12px;
+  transform: scaleX(-1);
+}
+.wg-frame__corner--bl {
+  left: -12px;
+  bottom: -12px;
+  transform: scaleY(-1);
+}
+.wg-frame__corner--br {
+  right: -12px;
+  bottom: -12px;
+  transform: scale(-1, -1);
+}
+
+/* A small brass name plate on the bottom rail. */
+.wg-frame__plate {
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  transform: translateX(-50%);
+  padding: 1px var(--space-3);
+  border-radius: 2px;
+  background: linear-gradient(var(--gold-200), var(--gold-400) 60%, var(--gold-600));
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px var(--gold-800);
+  color: var(--ink-900);
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Placeholder painting when no camera is running (dev gallery). */
+.wg-frame__placeholder {
+  aspect-ratio: 4 / 3;
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(226, 183, 90, 0.35), transparent 45%),
+    radial-gradient(ellipse at 50% 100%, var(--night-700), var(--night-950));
+}

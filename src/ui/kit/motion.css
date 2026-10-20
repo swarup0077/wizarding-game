@@ -1,0 +1,15 @@
+/* Motion rules (ART_DIRECTION.md): every animation in the kit is switched off for players
+   who ask their system for reduced motion. Things appear in their final state instead. */
+@media (prefers-reduced-motion: reduce) {
+  .wg-unroll,
+  .wg-unroll > *,
+  .wg-ink-in,
+  .wg-ink-in *,
+  .wg-ink-in *::after,
+  .wg-grade--O::after {
+    animation: none !important;
+  }
+  .wg-seal {
+    transition: none;
+  }
+}
