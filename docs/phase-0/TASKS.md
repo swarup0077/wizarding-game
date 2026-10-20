@@ -54,7 +54,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Tests:** the mouse source emits the correct `wand:*` sequence (simulate events). The particle pool reuses objects and never exceeds its cap.
 **Manual check:**
 - Hold the mouse button and draw. The trail must look *magical*, not like a line tool. Send me a screenshot.
-- Re-measure render fps while drawing continuously, with Chrome forced to DPR 2 (`chrome.exe --force-device-scale-factor=2`), at `?dprCap=1.5` and `?dprCap=2`. Record both in `PROGRESS.md`.
+- Re-measure render fps while drawing continuously at DPR 2, at `?dprCap=1.5` and `?dprCap=2`. Record both in `PROGRESS.md`. (Done with Chrome's device emulation at 1440×900 and DPR 2, the Retina pixel count; see D-033.)
 
 ## T3: Camera and webcam PiP
 **Covers:** FR-1, FR-20 (PiP), AC-10 (camera part)
@@ -90,6 +90,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
   - The One Euro filter is applied to the wand point only. The pinch ratio uses unfiltered landmarks, measured in 3D from `worldLandmarks` (FR-4).
   - Velocity is computed from the filtered point, in square units per second.
   - Emits `wand:*`, `hand:found` and `hand:lost`.
+- The M key toggles hand / mouse input (FR-6; moved here from T2, because this is the first task with a hand source to switch to).
 - Hand-lost indicator: red PiP border plus a "Hand lost" label.
 - Debug overlay: pinch-ratio bars for both the 3D world ratio and the aspect-corrected 2D ratio, with live threshold sliders; live One Euro sliders (min cutoff, beta), the raw vs filtered dot, and current velocity.
 
@@ -125,6 +126,8 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
   - `protractor.ts` (primary) and `dollarOne.ts` (baseline), both orientation-sensitive with rotation limited to each spell's `rotationToleranceDeg`.
 - **Spells:** `spells/spellTypes.ts` (including `PowerRule` and `rotationToleranceDeg`), `spells.ts` (3 spells, effects not yet implemented), `spellRegistry.ts`.
 - **HUD:** `hud/spellCards.ts`: HTML cards, each shape drawn from its template as inline SVG.
+- **Trail:** on `gesture:recognized`, set the stroke's release outcome (gold if recognized, grey if not), replacing the dev release preview.
+- **Dev:** switch `dev/strokeDemo.ts` to the shapes in `defaultTemplates.ts` and delete `dev/demoShapes.ts`, so each shape is defined once.
 - **Debug:** ranked gesture scores, plus a dev toggle to switch recognizer live.
 
 **Tests:** run every recognizer test against **both** recognizers through the interface.
@@ -211,7 +214,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 
 **Manual check:**
 - Cast each spell at all three tiers (gesture-only mode helps control this), and at hit and miss targets. Send me screenshots or a short screen recording.
-- Re-measure render fps with Chrome forced to DPR 2 (`chrome.exe --force-device-scale-factor=2`) while Lumos is lit and Incendio is bursting, at `?dprCap=1`, `1.5` and `2`. **Set the final DPR cap** in `tuning.ts`: the highest cap that keeps ≥ 55 fps. Log the numbers and the choice in `PROGRESS.md` and `DECISIONS.md`.
+- Re-measure render fps at DPR 2 (Chrome device emulation at 1440×900 and DPR 2, as in T2) while Lumos is lit and Incendio is bursting, at `?dprCap=1`, `1.5` and `2`. **Set the final DPR cap** in `tuning.ts`: the highest cap that keeps ≥ 55 fps. Log the numbers and the choice in `PROGRESS.md` and `DECISIONS.md`.
 
 ## T12: Sound
 **Covers:** FR-21

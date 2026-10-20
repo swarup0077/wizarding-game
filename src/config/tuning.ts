@@ -155,6 +155,91 @@ export const EFFECTS = {
 /** FR-18: wand trail. */
 export const TRAIL = {
   fadeMs: 350,
+  /** Spline points are placed about this far apart. */
+  subdivisionStep: 0.004,
+  /** Thin bright core: width at the head and at the tail. */
+  coreWidthHead: 0.0045,
+  coreWidthTail: 0.0008,
+  /** The core is drawn in this many age bands, each with its own width and alpha. */
+  coreBands: 14,
+  /** Wide soft glow radius at the head and tail, and its strength. */
+  glowRadiusHead: 0.04,
+  glowRadiusTail: 0.01,
+  glowAlpha: 0.3,
+  /** Tighter inner glow. */
+  midRadiusHead: 0.016,
+  midRadiusTail: 0.004,
+  midAlpha: 0.36,
+  /** Glow sprites are stamped every (this × radius) along the trail. */
+  stampSpacing: 0.4,
+  /** Head speeds (square units per second) that map to energy 0 (calm) and 1 (energetic). */
+  calmSpeed: 0.35,
+  energeticSpeed: 2.6,
+  /** Speed is measured over this much recent trail. */
+  speedWindowMs: 40,
+  /** How quickly the displayed energy follows the measured one. */
+  energySmoothingMs: 110,
+  /** At full energy: glow grows by this fraction, the core by this one. */
+  energyGlowGain: 0.7,
+  energyCoreGain: 0.25,
+  /** Bright flare at the head while drawing. */
+  headFlareRadius: 0.024,
+  headFlareAlpha: 0.55,
+  /** On release: how long a gold flash lasts, and how quickly a grey fade desaturates. */
+  releaseFlashMs: 280,
+  greyFadeMs: 160,
+};
+
+/** FR-18: sparkles along the trail. Lengths in square units, speeds in square units per second. */
+export const SPARKLES = {
+  /** Emitted per square unit travelled when calm, plus this many more at full energy. */
+  perUnitCalm: 45,
+  perUnitEnergetic: 160,
+  cap: 400,
+  lifeMinMs: 450,
+  lifeMaxMs: 950,
+  speedCalm: 0.03,
+  speedEnergetic: 0.32,
+  /** Velocity loss per second (exponential). */
+  drag: 2.2,
+  /** Upward drift acceleration. */
+  float: 0.09,
+  sizeMin: 0.004,
+  sizeMax: 0.01,
+  /** Gentle brightness flicker while alive. */
+  twinkleHz: 7,
+  twinkleDepth: 0.3,
+  /** Sparkles burst along the trail on a gold release. */
+  releaseBurst: 26,
+};
+
+/** FR-18: the idle wand dot. */
+export const WAND_DOT = {
+  coreRadius: 0.0045,
+  glowRadius: 0.036,
+  glowAlpha: 0.5,
+  pulseHz: 0.9,
+  /** Size and brightness swing ± this fraction. */
+  pulseDepth: 0.16,
+};
+
+/** FR-18 and FR-6: input sampling and render-time interpolation. */
+export const INPUT = {
+  /** The hand-tracking rate the 30 Hz preview simulates. */
+  handRateHz: 30,
+  /**
+   * The trail is drawn this many input intervals in the past, so it can interpolate.
+   * Above 1 leaves a margin for uneven frame timing (camera jitter).
+   */
+  renderDelayIntervals: 1.25,
+  renderDelayMinMs: 4,
+  renderDelayMaxMs: 50,
+  /** Smoothing of the measured input interval (0–1, higher follows faster). */
+  rateSmoothing: 0.15,
+  /** Samples further apart than this belong to separate bursts and don't update the rate. */
+  rateGapMs: 200,
+  /** Samples closer than this (e.g. a final position and the release) don't update the rate. */
+  rateMinGapMs: 4,
 };
 
 /** FR-20: HUD. */

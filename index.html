@@ -23,6 +23,16 @@
         width: 100%;
         height: 100%;
       }
+      /* The glowing wand dot is the cursor over the stage. */
+      #stage {
+        cursor: none;
+        touch-action: none;
+      }
+      /* No text selection while a stroke is being drawn. */
+      body.drawing {
+        user-select: none;
+        -webkit-user-select: none;
+      }
       /* HTML overlays sit above the canvas (D-023); only their own panels take clicks. */
       #hud {
         pointer-events: none;

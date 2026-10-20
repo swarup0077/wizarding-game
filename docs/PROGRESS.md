@@ -71,9 +71,9 @@ Installed: Node 24.15, vite 8.3.4, typescript 6.0.3, vitest 5.0.5, eslint 10.13.
 5. After pushing: https://wizarding-game.vercel.app shows the same page. On the Mac (DPR 2) if available, check sharpness and fps.
 
 **Numbers:** 60 tests in 8 files, ~0.35 s. Build 8 kB JS + 0.5 kB CSS.
-Render fps by DPR cap (laptop): 1 = _, 1.5 = _, 2 = _. Cap stays 1.5 (provisional) until it is set after T11 (D-032). Mac: _.
+Render fps, idle stage (measured in T2; see the T2 table): native DPR 1.25 = 60; emulated Retina (1440×900 at DPR 2) at cap 1.5 = 60 and cap 2 = 60. The cap stays 1.5 (provisional) until it is set after T11 (D-032). Real Mac: not yet checked.
 
-**Open issues:** Fill in the fps numbers above. The final cap is set after T11.
+**Open issues:** The final cap is set after T11.
 
 ## T1 follow-up: practice background polish (2026-10-21)
 **Done:** All in the once-drawn background image (no per-frame cost):
@@ -95,3 +95,37 @@ Render fps by DPR cap (laptop): 1 = _, 1.5 = _, 2 = _. Cap stays 1.5 (provisiona
 
 Overall brightness is lower. The 99th percentile rose slightly because a few stones inside the shaft are lit.
 73 tests, ~0.3 s.
+
+## T2: Mouse wand and the trail (2026-10-21)
+**Done:**
+- `input/`: `WandSource` interface; `mouseWandSource.ts` (Pointer Events, pointer capture, coalesced events, context menu blocked, no text selection while drawing); `handRateSampler.ts` (30 Hz hand-rate preview).
+- `presentation/`: `wandTimeline.ts` (render-time interpolation along a centripetal Catmull-Rom spline), `trailModel.ts`, `trailColors.ts`, `glowSprites.ts`, `trailDraw.ts`, `trailLayer.ts`, `particles.ts` (pooled), `sparkles.ts`, `wandDot.ts`, `layer.ts`. `canvasStage.ts` gained layers, an injectable frame clock and a per-frame work time.
+- Look: a warm gold-white head that fades to amber and thins toward the tail; wide and inner glow from stamped sprites; a thin core stroked in 14 age bands. Energy comes from head speed: calm strokes are thin and gold with gentle sparkles; fast strokes are brighter and wider, with more sparkles thrown further. Sparkles drift up, twinkle, shrink and fade to zero. The idle dot glows, pulses about once a second, and replaces the cursor over the stage.
+- Debug overlay (D): frame work, input rate, render delay, trail points, sparkles, glow sprites, a **Hand-rate preview (30 Hz)** toggle (also `?handRate=1`), and a **Release preview** choice (fade / gold / grey).
+- Dev: `?demo=circle|zigzag|swish&speed=slow|fast&at=0.85` stroke playback on a stepped clock (repeatable screenshots), `?demo=loop`, and `?reportFps=1` (fps, longest frame gap and work time, logged once a second).
+
+**Verify:**
+1. `npm run dev`, open http://localhost:5173. Move the mouse: the cursor is a softly pulsing gold dot.
+2. Hold the left button and draw a circle, a zigzag and a swish-and-flick, slowly and then fast. Slow should look calm and gold; fast should look brighter, with more sparkles. Sparkles drift and fade; none vanish abruptly.
+3. Press D, tick **Hand-rate preview (30 Hz)**, and draw again. "Input rate" reads about 30 Hz, and the trail must still be smooth (no corners or stepping).
+4. Set **Release preview** to gold, then grey, and release a stroke: gold flashes with a burst of sparkles; grey drains to ash and fades.
+5. Drag out of the window while drawing: the stroke continues (pointer capture). Right-click the stage: no menu.
+6. Send a screenshot of a real mouse stroke.
+
+**Numbers:** 123 tests, ~0.6 s. Render fps was measured in a visible Chrome on the laptop (Intel Iris Xe, on AC power, Balanced plan), 19 s per run after startup, using the loop demo for continuous drawing (30 Hz preview on) and `?reportFps=1`:
+
+| Run | Canvas (device px) | fps mean / min | Longest frame gap | Our work per frame (mean / max) |
+|---|---|---|---|---|
+| Native DPR 1.25, idle (T1 baseline) | 1920×970 | 59.8 / 57 | 50 ms (once; desktop) | 0.29 / 0.78 ms |
+| Native DPR 1.25, drawing | 1920×970 | 60 / 60 | 17.9 ms | 0.63 / 1.04 ms |
+| Emulated Retina, cap 1.5, idle | 2160×1350 | 60 / 60 | 18.0 ms | 0.11 / 0.13 ms |
+| Emulated Retina, cap 1.5, drawing | 2160×1350 | 60 / 60 | 17.9 ms | 0.59 / 1.02 ms |
+| Emulated Retina, cap 2, idle | 2880×1800 | 60 / 60 | 18.0 ms | 0.10 / 0.14 ms |
+| Emulated Retina, cap 2, drawing | 2880×1800 | 60 / 60 | 17.7 ms | 0.65 / 1.09 ms |
+
+"Emulated Retina" is Chrome's device emulation at 1440×900 CSS px and DPR 2 (the professor's MacBook pixel count), rendered on this laptop's GPU. Forcing `--force-device-scale-factor=2` on a 1080p screen would only halve the CSS size, not add pixels. Startup has one 200–230 ms gap while the background is drawn once; after that, no frame took longer than 18 ms while drawing.
+
+**Open issues:**
+- The M key moved to T5 (no hand source to switch to yet).
+- Gold and grey releases are a dev preview until T7 connects recognition.
+- Your real-mouse screenshot is still the judge of "magical".

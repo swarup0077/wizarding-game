@@ -168,3 +168,45 @@ Each entry: the decision, the alternatives, and why. Add new ones at the bottom 
 - **Decision:** The cap stays at 1.5 (provisional). Render fps is re-measured with Chrome forced to DPR 2 in T2 (with the trail) and T11 (with Lumos and Incendio running), and the cap is set for good after T11.
 - **Alternatives:** fix the cap in T1 from the empty stage.
 - **Why:** The empty stage costs almost nothing per frame, so a T1 measurement says little. The trail (T2) and full-screen light effects (T11) are the real per-pixel costs, and the DPR-2 Retina reviewer is the worst case for pixel count.
+
+## D-033: Stroke playback demo and scripted measurement (T2)
+- **Decision:**
+  - `dev/strokeDemo.ts` plays the three spell shapes at slow and fast speed, through the same 30 Hz sampler as the mouse. It runs on a stepped clock (1/60 s per frame) and can freeze mid-stroke (`?demo=…&at=0.85`).
+  - `?demo=loop` draws continuously on real time.
+  - `?reportFps=1` logs fps, the longest frame gap and our work time once a second.
+  - Screenshots and fps runs drive Chrome through its DevTools protocol (screenshots, device emulation, synthetic mouse events) from a throwaway script outside the repo.
+  - DPR-2 measurements use device emulation at 1440×900 and DPR 2, not `--force-device-scale-factor=2`.
+- **Alternatives:** judge only by hand; Puppeteer or Playwright (new dependencies); Chrome's `--screenshot` flag (it captures before any animation runs, and its virtual-time mode doesn't produce animation frames).
+- **Why:**
+  - The trail has to be judged at hand rate before a hand exists, and judged the same way after every tweak. A stepped clock makes screenshots repeatable.
+  - Forcing the scale factor on a 1080p screen only halves the CSS size; emulation is the only way to put the Retina pixel count (2880×1800) on this laptop's GPU.
+  - The demo code is downloaded only when `?demo=` is present.
+  - Visible-window runs need Chrome's anti-throttling flags, because Chrome pauses rendering for windows hidden behind others.
+
+## D-034: The trail is drawn slightly in the past, interpolated (T2)
+- **Decision:** The trail head is drawn at `now − delay`, with the delay at 1.25 × the measured input interval: about 42 ms at 30 Hz, and the 4 ms minimum with a mouse. Positions between samples come from the spline. The rate estimate ignores gaps under 4 ms (a final position and the release arrive together) and over 200 ms (pauses).
+- **Alternatives:** draw up to the newest sample (at hand rate the head jumps every 33 ms, which shows as stepping at 60 fps); predict ahead (overshoots on every change of direction).
+- **Why:** With 30 Hz input there is always a next sample to slide toward, so motion is smooth at 60 fps. The 25% margin absorbs uneven camera frame timing. The cost is about 42 ms of extra delay at hand rate, inside NFR-2's 100 ms budget, and invisible with a mouse.
+
+## D-035: Centripetal Catmull-Rom, in square units (T2)
+- **Decision:** The spline is Catmull-Rom with α = 0.5 (centripetal), computed in square units.
+- **Alternatives:** uniform Catmull-Rom; straight lines between samples.
+- **Why:** At 30 Hz a fast stroke has very uneven sample spacing. Uniform Catmull-Rom loops and overshoots there; the centripetal version does not. Straight lines would show the 30 Hz polygon. Square units keep the curve's shape the same on any screen.
+
+## D-036: Glow from pre-built sprites; core in age bands; sprites built at startup (T2)
+- **Decision:**
+  - Wide and inner glow are radial sprites stamped along the trail with additive blending, spaced in proportion to their size.
+  - The thin core is stroked as continuous paths in 14 age bands, each with its own width and alpha.
+  - Sprite colours come from inputs rounded to fixed grids (trail position 1/40, energy 1/8, release 1/16, sparkle warmth 1/32), and the full set (180 sprites) is built at startup.
+- **Alternatives:** `shadowBlur` or `ctx.filter` (very slow on integrated graphics; ruled out); one stroke per segment (bright beads where additive line caps overlap); building sprites on first use.
+- **Why:** Building sprites on first use caused 33–50 ms hitches the first time a new colour appeared, such as the first gold flash. Rounding the inputs makes the set exact, so a test can prove no sprite is ever built mid-stroke. Measured result: no frame gap over 18 ms while drawing.
+
+## D-037: The M key moves to T5; release outcome is a dev preview until T7 (T2)
+- **Decision:** M (mouse ↔ hand) is built in T5. Until T7, a released stroke uses the debug overlay's "Release preview" (fade, gold or grey); T7 sets it from `gesture:recognized`.
+- **Alternatives:** an M key that toggles to nothing; a fake recognizer.
+- **Why:** Neither has anything real to connect to yet. The renderer already supports all three outcomes, so their look can be judged now.
+
+## D-038: The wand dot replaces the cursor over the stage (T2)
+- **Decision:** The stage hides the system cursor (`cursor: none`); the glowing dot is the cursor.
+- **Alternatives:** show both.
+- **Why:** The dot is drawn a few milliseconds in the past (D-034), so an arrow would visibly lead it, and an arrow on a magic stage breaks the feel. The debug panel keeps a normal cursor.
