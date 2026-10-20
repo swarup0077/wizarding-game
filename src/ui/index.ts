@@ -8,12 +8,14 @@ import './kit/inkNote.css';
 import './kit/frame.css';
 import './kit/spellbook.css';
 import './kit/grade.css';
+import './kit/statusTag.css';
 import './kit/motion.css';
 
 export { ensureUiFilters } from './filters';
-export { gildedFrame } from './kit/gildedFrame';
 export { gradeBadge } from './kit/gradeBadge';
 export { inkNote, type InkNoteLevel } from './kit/inkNote';
 export { parchmentPanel, type ParchmentPanelOptions } from './kit/parchmentPanel';
+export { pictureFrame, type PictureFrameOptions, setFrameStyle } from './kit/pictureFrame';
 export { spellbookPage, type SpellbookPageOptions } from './kit/spellbookPage';
+export { setStatusTag, statusTag, type StatusTagTone } from './kit/statusTag';
 export { inkLinkButton, waxSealButton } from './kit/waxSealButton';

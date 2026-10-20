@@ -1,0 +1,40 @@
+/* Status tag: a tiny slip of parchment with a label and a margin dot. No filter, so changing
+   its words repaints only text. Alert turns the words and the dot to red ink. */
+.wg-status-tag {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  color: var(--ink-700);
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  font-variant-ligatures: none;
+  white-space: nowrap;
+  isolation: isolate;
+}
+.wg-status-tag__paper {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: var(--radius-soft);
+  background-color: var(--parchment-100);
+  background-image: var(--tex-grain);
+  box-shadow: var(--shadow-soft);
+}
+.wg-status-tag__mark {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-700);
+}
+.wg-status-tag--alert {
+  color: var(--ink-red);
+}
+.wg-status-tag--alert .wg-status-tag__mark {
+  background: var(--ink-red);
+}

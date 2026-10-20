@@ -33,7 +33,9 @@ src/
     events.ts                EventMap (all event names + payloads)
     types.ts                 Vec2, TracePoint, SpellId, Tier...
     clock.ts                 injectable now() for tests
+  core/settingsTypes.ts      the Settings shape + PREVIEW_FRAMES (core, so settings:changed can carry it)
   settings/settings.ts       persisted user settings (versioned)
+  settings/settingsStore.ts  the session's settings: update → save → settings:changed; ui:action → setting
   input/
     camera.ts                getUserMedia + Permissions API (browser-only, thin); owns the one <video>
     cameraErrors.ts          pure: getUserMedia error + permission state → failure kind
@@ -41,6 +43,7 @@ src/
     cameraController.ts      bus ↔ cameraFlow ↔ camera; emits camera:status
     wandSource.ts            WandSource interface
     mouseWandSource.ts       mouse fallback (same events as the hand)
+    keyboardActions.ts       shortcut keys → ui:action (P now; M in T5, S in T13)
   perception/
     handTracker.ts           HandLandmarker wrapper (browser-only, thin)
     oneEuroFilter.ts         pure
@@ -82,7 +85,7 @@ src/
     theme.css                design tokens and @font-face
     materials.css            procedural textures
     filters.ts, ornaments.ts SVG filters; original flourishes and seal marks
-    kit/                     parchment, wax seal, ink note, gilded frame, spellbook page, grade badge
+    kit/                     parchment, wax seal, ink note, picture frame (styles: minimal, portrait), status tag, spellbook page, grade badge
     grades.ts, contrast.ts   pure: tier → grade; WCAG contrast (theme is checked in tests)
     brand.ts                 GAME_TITLE placeholder (T13)
   dev/
@@ -147,7 +150,8 @@ export interface EventMap {
   'spell:ended':         { spellId: SpellId; t: number };            // sustained spells
   'system:message':      { level: 'info' | 'warn' | 'error'; text: string;
                            action?: { id: UiActionId; label: string } };
-  'ui:action':           { id: UiActionId; t: number };  // a HUD button: 'camera.enable' | 'camera.retry' | 'camera.useMouse'
+  'ui:action':           { id: UiActionId; t: number };  // a HUD button or key: 'camera.enable' | 'camera.retry' | 'camera.useMouse' | 'preview.toggle'
+  'settings:changed':    { settings: Settings; changed: (keyof Settings)[]; t: number };
 }
 ```
 Input reports camera failures as a `CameraFailureKind` (data); presentation alone turns a kind into words. HUD buttons talk back through `ui:action`, never through callbacks. DOM objects that can't travel on the bus (the camera's `<video>`) are handed out by `main.ts`: the preview shows the same element the hand tracker reads.
@@ -214,6 +218,8 @@ HUD and debug text is HTML/CSS layered over the canvas, never canvas text, so th
 | A gesture recognizer ($P, ML model...) | A new `GestureRecognizer`; the benchmark decides if it wins | Accept rule, fusion, everything downstream |
 | A power signal (velocity, mic volume, hold time) | A signal producer + weights in the spells that use it | Quality logic, other spells |
 | An input device (phone, VR, controller) | A new `WandSource` emitting the same `wand:*` events | Anything downstream |
+| A webcam preview frame style | One `.wg-frame--<name>` block in `src/ui/kit/frame.css` and its name in `PREVIEW_FRAMES` | The preview, settings logic |
+| A shortcut key | One entry in `input/keyboardActions.ts` mapping it to a `UiActionId` | Whatever handles that action |
 | A scene, room, or class | A new `Scene` file | Engine, recognition |
 | A prop interaction | Tags on props; effects query by tag | Other effects |
 | 3D rendering (Phase 1) | New presentation + `View` that ray-casts from the wand point | Perception, recognition, spells data |

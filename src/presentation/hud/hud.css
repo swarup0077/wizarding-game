@@ -22,6 +22,17 @@
   transform: scaleX(-1);
 }
 
+/* The status chip that replaces the picture while the preview is hidden (P). */
+.wg-pip-chip {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-ink) var(--ease-ink);
+}
+.wg-pip-chip.is-shown {
+  opacity: 1;
+}
+
 /* The camera card, centred over the stage. The layer itself lets clicks through; the card
    takes them only while shown, so a click on its paper never draws a stroke. */
 .wg-camera-layer {
@@ -73,7 +84,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wg-pip {
+  .wg-pip,
+  .wg-pip-chip {
     transition: none;
   }
 }

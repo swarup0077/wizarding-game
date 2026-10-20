@@ -36,5 +36,10 @@ export type CameraActual = {
   label: string;
 };
 
-/** A HUD button the player pressed. Input and other layers act on these through the bus. */
-export type UiActionId = 'camera.enable' | 'camera.retry' | 'camera.useMouse';
+/** A HUD button or shortcut key the player pressed. Other layers act on these through the bus. */
+export type UiActionId =
+  | 'camera.enable'
+  | 'camera.retry'
+  | 'camera.useMouse'
+  /** Show or hide the webcam picture (P). */
+  | 'preview.toggle';

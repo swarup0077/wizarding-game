@@ -74,7 +74,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Covers:** FR-1, FR-20 (preview, toasts), AC-10 (camera part)
 **Build** (with the T2b kit; error kinds and recovery as agreed in the T3 plan, recorded in D-049 to D-053):
 - `input/camera.ts`, with a distinct error for each failure type.
-- `hud/webcamPip.ts`: the mirrored preview inside the **gilded frame** (a moving portrait). `pointer-events: none`.
+- `hud/webcamPip.ts`: the mirrored preview in a picture frame (default **minimal**; the gilded portrait is a second style, chosen by the `previewFrame` setting; T3 follow-up). `pointer-events: none`. P hides the picture (`showPreview`, saved) and shows a small status chip instead; the camera keeps running.
 - The camera card: a **parchment panel** with **wax-seal** Retry and a quiet "Use the mouse instead" link.
 - `hud/toasts.ts`: **ink-note** toasts, driven by `system:message`.
 - On camera failure, offer mouse mode.
@@ -107,7 +107,9 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
   - Velocity is computed from the filtered point, in square units per second.
   - Emits `wand:*`, `hand:found` and `hand:lost`.
 - The M key toggles hand / mouse input (FR-6; moved here from T2, because this is the first task with a hand source to switch to).
-- Hand-lost indicator: red PiP border plus a "Hand lost" label.
+- Hand-lost indicator, working whether the preview is shown or hidden (P):
+  - preview shown: a red frame border plus a "Hand lost" label, as an `is-hand-lost` state that every frame style in `frame.css` styles;
+  - preview hidden: the status chip already reads "Camera on · hand lost" in red ink once `hand:lost` is emitted (built in the T3 follow-up; it listens to `hand:found` / `hand:lost`).
 - Debug overlay: pinch-ratio bars for both the 3D world ratio and the aspect-corrected 2D ratio, with live threshold sliders; live One Euro sliders (min cutoff, beta), the raw vs filtered dot, and current velocity.
 
 **Tests:**
@@ -247,7 +249,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Build:**
 - The intro as an **acceptance letter** (UI kit): a sealed parchment; clicking the wax seal opens it (unroll, ink-bleed). The address is in green handwriting. Every line is original wording, never quoted from the books or films. The letter leads into the permission sequence and holds the NFR-6 privacy line.
 - Choose the game title and replace the `GAME_TITLE` placeholder in `src/ui/brand.ts`.
-- `dev/settingsPanel.ts`, wiring every setting live, on a parchment panel.
+- `dev/settingsPanel.ts`, wiring every setting live, on a parchment panel. It includes **Show webcam preview** (the same `preview.toggle` action as the P key) and the **preview frame** style (every name in `PREVIEW_FRAMES`), both through the settings store (T3 follow-up).
 - Wand-hand preference: the other hand counts as no hand (swap MediaPipe's handedness labels for the unmirrored frame).
 - Check every HUD element against `docs/ART_DIRECTION.md` (one style, the kit's components only).
 

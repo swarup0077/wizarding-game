@@ -34,6 +34,7 @@ Procedural only: CSS gradients and SVG filters, no image files (NFR-8).
 - **Parchment:** warm base, fine grain and slow stains (SVG noise, `materials.css`), darker aged edges, a slightly torn outline (`#wg-rough-edge`). The paper is its own layer, so filters never touch text.
 - **Ink:** text sits in the paper; fresh ink bleeds slightly before settling.
 - **Gilt:** gold gradients with brushed streaks, an inner bead moulding, original corner flourishes.
+- **Hairline:** the webcam preview's default frame is quiet on purpose: a faint parchment hairline (`--line-hairline`), soft corners (`--radius-soft`) and a soft shadow (`--shadow-soft`), so the stage and the magic stay in front. The gilded portrait is a second frame style; the final choice waits for the real room backgrounds (`docs/LATER.md`).
 - **Wax:** a lit dome, darker rim, irregular pour (`#wg-wax-rim`), a pressed ring and an original mark (star, or star over wand). Never a crest or letter.
 - **Stone:** the stage (T1), dim and cool, so warm materials glow against it.
 

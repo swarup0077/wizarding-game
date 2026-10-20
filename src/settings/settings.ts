@@ -4,25 +4,9 @@
 // from the defaults without wiping what the player already saved (D-026).
 // A breaking change to the format gets a new key (wg.settings.v2) plus a migration from v1.
 
-/** Speech recognition languages offered in settings. */
-export type VoiceLang = 'en-US' | 'en-IN';
+import { PREVIEW_FRAMES, type Settings } from '../core/settingsTypes';
 
-/** Everything the settings panel controls. */
-export interface Settings {
-  voiceLang: VoiceLang;
-  /** Off = gesture-only mode. */
-  voiceRequired: boolean;
-  inputMode: 'hand' | 'mouse';
-  wandHand: 'any' | 'left' | 'right';
-  /** Faint guide shape on the stage while tracing. */
-  guideShapes: boolean;
-  /** 0 (silent) to 1. */
-  masterVolume: number;
-  /** Dev: active gesture recognizer. */
-  recognizer: 'protractor' | 'dollarOne';
-  /** Dev: default + personal templates, or personal only. */
-  templateMode: 'all' | 'mineOnly';
-}
+export type { PreviewFrame, Settings, VoiceLang } from '../core/settingsTypes';
 
 /** The localStorage key. The version is part of the key. */
 export const SETTINGS_KEY = 'wg.settings.v1';
@@ -37,6 +21,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   masterVolume: 0.8,
   recognizer: 'protractor',
   templateMode: 'all',
+  previewFrame: PREVIEW_FRAMES[0],
+  showPreview: true,
 };
 
 /** The subset of the Web Storage API settings need; injected so tests need no browser. */
@@ -67,6 +53,8 @@ const VALIDATORS: { [K in keyof Settings]: Validator<Settings[K]> } = {
   masterVolume: isUnitNumber,
   recognizer: oneOf('protractor', 'dollarOne'),
   templateMode: oneOf('all', 'mineOnly'),
+  previewFrame: oneOf(...PREVIEW_FRAMES),
+  showPreview: isBoolean,
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

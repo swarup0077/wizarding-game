@@ -1,17 +1,19 @@
 // Dev page (?dev=ui): every UI kit component in each of its states, over the real stage.
 // Loaded only when asked for. Hover and pressed states are shown statically with
 // `is-hover` / `is-pressed`, so screenshots can show them.
+import { PREVIEW_FRAMES } from '../core/settingsTypes';
 import { contrastRatio } from '../ui/contrast';
 import { GAME_TITLE } from '../ui/brand';
 import { GRADE_WORDS, type Grade } from '../ui/grades';
 import {
   ensureUiFilters,
-  gildedFrame,
   gradeBadge,
   inkLinkButton,
   inkNote,
   parchmentPanel,
+  pictureFrame,
   spellbookPage,
+  statusTag,
   waxSealButton,
 } from '../ui';
 import { readTokens, resolveToken } from '../ui/themeTokens';
@@ -246,17 +248,25 @@ function notesSection(): HTMLElement {
 }
 
 function frameAndGradesSection(): HTMLElement {
-  const s = section('wg-gallery__section', 'Gilded frame (moving portrait) and grade badges');
-  const placeholder = document.createElement('div');
-  placeholder.className = 'wg-frame__placeholder';
-  const frame = gildedFrame(placeholder, 'The Caster');
-  frame.classList.add('wg-gallery__frame');
+  const s = section('wg-gallery__section', 'Preview frames, status tags and grade badges');
+  // Every frame style in PREVIEW_FRAMES, so a new CSS style shows up here by itself.
+  const frames = PREVIEW_FRAMES.map((style) => {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'wg-frame__placeholder';
+    const frame = pictureFrame(placeholder, { style, plate: 'Your wand hand' });
+    frame.classList.add('wg-gallery__frame');
+    return labelled(`preview frame: ${style}`, frame);
+  });
+  const tags = row(
+    labelled('status tag, quiet', statusTag('Camera on · hand seen')),
+    labelled('status tag, alert', statusTag('Camera on · hand lost', 'alert')),
+  );
   const grades = row(
     ...(['O', 'E', 'A', 'P'] as Grade[]).map((g) =>
       labelled(`${g}: ${GRADE_WORDS[g]}`, gradeBadge(g)),
     ),
   );
-  s.append(row(labelled('webcam preview (T3)', frame), grades));
+  s.append(row(...frames), tags, grades);
   return s;
 }
 

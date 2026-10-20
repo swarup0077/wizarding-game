@@ -298,3 +298,22 @@ Each entry: the decision, the alternatives, and why. Add new ones at the bottom 
 - **Decision:** Every scripted Chrome run that may touch the camera (`measure:fps` and screenshot scripts) passes `--use-fake-device-for-media-stream`. The real "no camera" path is checked through the dev trigger (`?dev=camera&fail=not-found`), not by launching Chrome without the fake device.
 - **Alternatives:** a headless run without the fake device to get a real NotFoundError.
 - **Why:** In T3 a headless run without the fake device (meant to produce NotFoundError) opened this laptop's real webcam for a few seconds and captured a frame. The image was deleted at once and never left the machine. The fake camera makes every scripted run private and repeatable.
+
+## D-055: The webcam preview frame is a style setting; minimal by default (T3 follow-up)
+- **Decision:** The kit's frame is now `pictureFrame(content, { style, plate })`, with one DOM for every style: the window, four corner flourishes and a name plate. Each style is one `.wg-frame--<name>` block in `src/ui/kit/frame.css` that decides what to show, and ornaments are hidden unless a style turns them on. Styles: `minimal` (the default: a faint parchment hairline, 6 px corners, a soft shadow, no ornaments, all from new theme tokens) and `portrait` (the T2b gilded frame, kept unchanged). The `previewFrame` setting picks one and can switch live (`setFrameStyle`, no rebuild). The names live in `PREVIEW_FRAMES` (core/settingsTypes.ts), so a new style is its CSS block plus its name in that list.
+- **Alternatives:** replace the gilded frame outright; a separate component per style; a free-text setting so a style is CSS only.
+- **Why:** You want to judge the frame against the real room backgrounds in Phase 1/2 (LATER.md), so both stay available and switching costs nothing. The name list is the one line beyond CSS: it lets the settings validator reject a typo, and gives T13's settings panel and the `?dev=ui` gallery the list of styles to offer (the gallery shows every style by itself).
+
+## D-056: Hiding the preview hides only the picture (T3 follow-up)
+- **Decision:** P (and later T13's settings toggle) sends `ui:action` `preview.toggle`. The settings store flips `showPreview`, saves it and emits `settings:changed`. The preview fades its frame to opacity 0. The `<video>` keeps playing and the camera stays on, and a small status chip (a new kit **status tag**) shows "Camera on", then "hand seen" or "hand lost" in red ink, from `hand:found` / `hand:lost`. Hiding it shows one toast saying the camera still follows the hand.
+- **Alternatives:** stop the camera when hidden; `display: none` on the video; no chip.
+- **Why:** The hand is the wand, so hiding the picture must never stop tracking. With opacity, the browser still presents every frame: measured with `requestVideoFrameCallback` on the hidden preview, 21 frames in 1 s from the 20 fps fake camera, so T4's tracker keeps its input. `display: none` risks the browser skipping frames for an element it doesn't render. The chip keeps the feedback that the picture gave, which matters most for "hand lost".
+
+## D-057: Shortcut keys and a live settings store (T3 follow-up)
+- **Decision:**
+  - `input/keyboardActions.ts` maps shortcut keys to `UiActionId`s. Pure: `actionForKey` ignores repeats, modifier combinations (Ctrl+P still prints) and typing in fields.
+  - `settings/settingsStore.ts` holds the session's settings. `update()` validates field by field, saves, and emits `settings:changed` with the changed field names; `settingsPatchForAction` turns actions into setting changes.
+  - The `Settings` type moved to `core/settingsTypes.ts`, because core may not import `settings/` and the event has to carry the type.
+  - The camera controller stays off on `?dev=ui`, so the live camera card no longer covers the gallery.
+- **Alternatives:** each HUD module handling its own key and writing localStorage itself; untyped settings events.
+- **Why:** A key and a settings checkbox now share one path. T5's M key and T13's S key are one line each, and T13's panel only calls `update()`. The debug overlay's D key stays in the dev tool.

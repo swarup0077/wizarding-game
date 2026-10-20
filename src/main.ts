@@ -7,6 +7,7 @@ import { createFpsReporter } from './dev/fpsReporter';
 import type { StrokeDemo } from './dev/strokeDemo';
 import { createBrowserCamera } from './input/camera';
 import { createCameraController } from './input/cameraController';
+import { startKeyboardActions } from './input/keyboardActions';
 import { createMouseWandSource, type HandRatePreview } from './input/mouseWandSource';
 import { parseDprCapOverride } from './presentation/canvasSize';
 import { createCanvasStage, type CanvasStage } from './presentation/canvasStage';
@@ -15,7 +16,8 @@ import { detectPlatform, parsePlatformOverride } from './presentation/hud/platfo
 import type { ReleaseOutcome } from './presentation/trailColors';
 import { createTrailLayer, type TrailLayer } from './presentation/trailLayer';
 import { createPracticeStage } from './scenes/practiceStage';
-import { browserStore, loadSettings, type Settings } from './settings/settings';
+import { browserStore, type Settings } from './settings/settings';
+import { connectSettingsActions, createSettingsStore } from './settings/settingsStore';
 import { ensureUiFilters } from './ui';
 
 /** What the running game is built from. Later tasks add sources and recognition. */
@@ -36,7 +38,9 @@ function requireElement(id: string): HTMLElement {
 export async function bootstrap(): Promise<App> {
   const params = new URLSearchParams(window.location.search);
   const bus = createEventBus<EventMap>();
-  const settings = loadSettings(browserStore());
+  const settingsStore = createSettingsStore(browserStore(), bus, systemClock);
+  connectSettingsActions(bus, settingsStore);
+  startKeyboardActions(bus, systemClock);
   const handRate: HandRatePreview = { enabled: params.get('handRate') === '1' };
   const trail = createTrailLayer(bus);
   ensureUiFilters();
@@ -78,8 +82,17 @@ export async function bootstrap(): Promise<App> {
   const camera = createBrowserCamera();
   const cameraState = watchCameraStatus(bus);
   const platform = parsePlatformOverride(params.get('platform')) ?? detectPlatform();
-  mountHud({ parent: hud, bus, video: camera.video, platform, now: () => systemClock.now() });
-  createCameraController({ bus, camera, clock: systemClock }).start();
+  mountHud({
+    parent: hud,
+    bus,
+    video: camera.video,
+    platform,
+    settings: settingsStore.get(),
+    now: () => systemClock.now(),
+  });
+  // The UI gallery shows the camera card itself; the live one would cover it.
+  if (params.get('dev') !== 'ui')
+    createCameraController({ bus, camera, clock: systemClock }).start();
   if (params.get('dev') === 'camera') {
     const { startCameraSim } = await import('./dev/cameraSim');
     startCameraSim(params, bus, camera.video);
@@ -99,7 +112,7 @@ export async function bootstrap(): Promise<App> {
     report?.(t);
   });
 
-  return { bus, settings };
+  return { bus, settings: settingsStore.get() };
 }
 
 function buildOverlay(

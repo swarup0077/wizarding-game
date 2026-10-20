@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PREVIEW_FRAMES } from '../core/settingsTypes';
 import {
   browserStore,
   createMemoryStore,
@@ -45,6 +46,8 @@ describe('settings', () => {
       masterVolume: 0.25,
       recognizer: 'dollarOne',
       templateMode: 'mineOnly',
+      previewFrame: 'portrait',
+      showPreview: false,
     };
 
     expect(saveSettings(store, custom)).toBe(true);
@@ -90,6 +93,49 @@ describe('settings', () => {
       ...DEFAULT_SETTINGS,
       voiceLang: 'en-IN',
       masterVolume: 0.5,
+    });
+  });
+
+  describe('webcam preview fields', () => {
+    it('default to the minimal frame, with the preview shown', () => {
+      expect(DEFAULT_SETTINGS.previewFrame).toBe('minimal');
+      expect(DEFAULT_SETTINGS.previewFrame).toBe(PREVIEW_FRAMES[0]);
+      expect(DEFAULT_SETTINGS.showPreview).toBe(true);
+    });
+
+    it('accept every frame style in PREVIEW_FRAMES', () => {
+      for (const style of PREVIEW_FRAMES)
+        expect(sanitizeSettings({ previewFrame: style }).previewFrame).toBe(style);
+    });
+
+    it('reset an unknown frame style or a non-boolean showPreview on their own', () => {
+      const loaded = sanitizeSettings({
+        previewFrame: 'neon',
+        showPreview: 'no',
+        wandHand: 'left',
+      });
+      expect(loaded.previewFrame).toBe('minimal');
+      expect(loaded.showPreview).toBe(true);
+      expect(loaded.wandHand).toBe('left');
+    });
+
+    it('keep a hidden preview across a reload', () => {
+      const store = createMemoryStore();
+      saveSettings(store, { ...DEFAULT_SETTINGS, showPreview: false });
+      expect(loadSettings(store).showPreview).toBe(false);
+    });
+
+    it('are filled in for saves from before they existed', () => {
+      const t3Save = JSON.stringify({
+        ...DEFAULT_SETTINGS,
+        previewFrame: undefined,
+        showPreview: undefined,
+        wandHand: 'right',
+      });
+      const loaded = loadSettings(storeWith(t3Save));
+      expect(loaded.previewFrame).toBe('minimal');
+      expect(loaded.showPreview).toBe(true);
+      expect(loaded.wandHand).toBe('right');
     });
   });
 

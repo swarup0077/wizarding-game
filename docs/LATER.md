@@ -13,3 +13,4 @@ Ideas and features deliberately kept out of the current phase (the scope rule in
 | Howler.js for audio files | Only when real recorded sounds replace the synthesized ones | 1+ |
 | Safari support | The reviewer uses Chrome on Mac. Safari's speech recognition and camera behaviour differ and would need their own testing | 1+ |
 | Camera picker (several cameras) | Phase 0 uses the browser's default user-facing camera. A picker needs `enumerateDevices`, a saved `deviceId`, and handling for a camera that disappears | 1+ |
+| Final webcam preview frame style | Minimal is the default and the gilded portrait stays as a second style (`previewFrame`). Choose the final one, or a new style (one CSS block plus its name in `PREVIEW_FRAMES`), once it can be judged against the real room backgrounds | 1–2 |

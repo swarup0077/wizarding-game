@@ -22,6 +22,14 @@ export const CAMERA_LABELS = {
   plate: 'Your wand hand',
 };
 
+/** The webcam preview's status chip (shown while the picture is hidden) and its toast. */
+export const PREVIEW_COPY = {
+  chipCameraOn: 'Camera on',
+  chipHandSeen: 'Camera on · hand seen',
+  chipHandLost: 'Camera on · hand lost',
+  hidden: 'Preview hidden. The camera still follows your hand; press P to show it again.',
+};
+
 /** The temporary "Enable camera" card (T13's acceptance letter replaces it). */
 export const CAMERA_INTRO: CameraCopy = {
   title: 'Your wand hand',

@@ -240,3 +240,36 @@ A follow-up run with timestamps showed every long gap inside the first 2.2 s aft
 - A kit note for later HUD panels: `.wg-unroll` keeps its last frame (fill mode `both`), so a hidden panel must drop the class, or it stays visible (D-053).
 - Headless Chrome stalls when capturing DPR-2 screenshots of filtered parchment; DPR-2 screenshots use a visible Chrome (GPU).
 
+## T3 follow-up: minimal preview frame, frame styles, hide the preview (2026-10-21)
+**Done:**
+- The preview's default frame is now **minimal**: a faint parchment hairline (`--line-hairline`, parchment-300 at 32%), 6 px corners (`--radius-soft`), a soft shadow (`--shadow-soft`), no ornaments. These are new theme tokens.
+- Frame styles: `pictureFrame` (replaces `gildedFrame`) has one DOM for every style. Each style is one `.wg-frame--<name>` block in `frame.css`; the gilded portrait is kept as `portrait`. The `previewFrame` setting picks one (names in `PREVIEW_FRAMES`). The `?dev=ui` gallery shows every style.
+- **P** toggles the preview (`showPreview`, saved, so it survives a reload). Only the picture hides: the camera and video keep running. A small **status tag** (new kit component) takes its place: "Camera on", then "hand seen" or "hand lost" in red ink once T5 emits hand events. Hiding shows one toast: "Preview hidden. The camera still follows your hand; press P to show it again."
+- `input/keyboardActions.ts` (keys → `ui:action`), `settings/settingsStore.ts` (update → save → `settings:changed`), the `Settings` type moved to `core/settingsTypes.ts`, and the new `settings:changed` event.
+- The camera card no longer covers the `?dev=ui` gallery.
+- Docs:
+  - TASKS: T5's hand-lost indicator works with the preview hidden; T13's settings panel gets the preview toggle and frame style.
+  - SPEC: FR-7, FR-20 and FR-22 updated.
+  - LATER: choose the final frame in Phase 1/2.
+  - ART_DIRECTION: the hairline frame.
+  - ARCHITECTURE: files, events and two new extension points.
+
+**Verify:**
+1. `npm run dev`, Enable camera: the preview has a thin, faint border with soft corners and no gold.
+2. Press P: the picture fades out, a small "Camera on" tag appears bottom-right, and a toast explains that the camera is still running. Reload and Enable: still hidden. Press P again: the picture is back.
+3. P does nothing while typing in a field, and Ctrl+P still opens Print.
+4. Gilded style (until T13's settings panel exists), in the DevTools console: `localStorage.setItem('wg.settings.v1', JSON.stringify({ ...JSON.parse(localStorage.getItem('wg.settings.v1') ?? '{}'), previewFrame: 'portrait' }))`, then reload. Use `'minimal'` to switch back.
+5. `?dev=ui`: "Preview frames, status tags and grade badges" shows both frames and both chip tones.
+
+**Numbers:**
+- 217 tests in 32 files (~1 s). New: settings preview fields 5, settingsStore 5, keyboardActions 3, previewState 4.
+- Hidden preview in headless Chrome on the fake camera:
+  - the frame's opacity is 0 and the track is still live;
+  - `requestVideoFrameCallback` counted 21 frames in 1 s (the fake camera runs at 20 fps), so the tracker will keep getting frames;
+  - `showPreview: false` is saved, and the preview is still hidden after a reload.
+- No console errors in any run.
+
+**Open issues:**
+- The minimal frame's hairline is deliberately faint; against a real webcam picture it may need a touch more opacity. That's one token (`--line-hairline`), and the final frame is chosen in Phase 1/2 anyway.
+- Until T5 emits `hand:found` / `hand:lost`, the chip only says "Camera on".
+

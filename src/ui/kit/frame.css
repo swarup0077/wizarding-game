@@ -1,42 +1,16 @@
-/* Ornate gilded frame: the webcam preview becomes a moving portrait. */
+/* Picture frame (the webcam preview). One DOM for every style (pictureFrame.ts); each style
+   is one `.wg-frame--<name>` block below, named in PREVIEW_FRAMES (core/settingsTypes.ts).
+   Ornaments stay hidden unless a style turns them on. */
 .wg-frame {
   position: relative;
   margin: 0;
-  padding: 18px;
-  border-radius: 4px;
-  background-color: var(--gold-600);
-  background-image:
-    var(--tex-gilt),
-    linear-gradient(
-      135deg,
-      var(--gold-200) 0%,
-      var(--gold-400) 18%,
-      var(--gold-800) 42%,
-      var(--gold-400) 62%,
-      var(--gold-200) 80%,
-      var(--gold-600) 100%
-    );
-  box-shadow:
-    0 14px 30px rgba(0, 0, 0, 0.6),
-    0 0 0 1px var(--gold-800),
-    inset 0 0 0 2px rgba(255, 240, 200, 0.45),
-    inset 0 0 0 5px var(--gold-800),
-    inset 0 0 0 6px rgba(255, 240, 200, 0.35),
-    inset 0 0 0 10px var(--gold-600),
-    inset 0 0 0 11px var(--gold-800),
-    inset 0 0 0 12px rgba(255, 240, 200, 0.4);
   pointer-events: none;
 }
 
-/* The painting: inset into the moulding, darkened at the edges like old varnish. */
 .wg-frame__canvas {
   position: relative;
   overflow: hidden;
-  border-radius: 2px;
   background: var(--night-800);
-  box-shadow:
-    0 0 0 2px var(--gold-800),
-    inset 0 0 18px rgba(0, 0, 0, 0.6);
 }
 .wg-frame__canvas > video,
 .wg-frame__canvas > canvas,
@@ -45,16 +19,11 @@
   width: 100%;
   height: auto;
 }
-.wg-frame__canvas::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(20, 10, 0, 0.55) 100%),
-    linear-gradient(rgba(255, 210, 140, 0.08), rgba(255, 210, 140, 0.08));
-  pointer-events: none;
-}
 
+.wg-frame__corner,
+.wg-frame__plate {
+  display: none;
+}
 .wg-frame__corner {
   position: absolute;
   width: 64px;
@@ -114,4 +83,58 @@
   background:
     radial-gradient(ellipse at 50% 38%, rgba(226, 183, 90, 0.35), transparent 45%),
     radial-gradient(ellipse at 50% 100%, var(--night-700), var(--night-950));
+}
+
+/* Style: minimal (the default). A faint parchment hairline, soft corners, a soft shadow. */
+.wg-frame--minimal .wg-frame__canvas {
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-soft);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Style: portrait. Ornate gilt: the webcam preview becomes a moving portrait. */
+.wg-frame--portrait {
+  padding: 18px;
+  border-radius: 4px;
+  background-color: var(--gold-600);
+  background-image:
+    var(--tex-gilt),
+    linear-gradient(
+      135deg,
+      var(--gold-200) 0%,
+      var(--gold-400) 18%,
+      var(--gold-800) 42%,
+      var(--gold-400) 62%,
+      var(--gold-200) 80%,
+      var(--gold-600) 100%
+    );
+  box-shadow:
+    0 14px 30px rgba(0, 0, 0, 0.6),
+    0 0 0 1px var(--gold-800),
+    inset 0 0 0 2px rgba(255, 240, 200, 0.45),
+    inset 0 0 0 5px var(--gold-800),
+    inset 0 0 0 6px rgba(255, 240, 200, 0.35),
+    inset 0 0 0 10px var(--gold-600),
+    inset 0 0 0 11px var(--gold-800),
+    inset 0 0 0 12px rgba(255, 240, 200, 0.4);
+}
+.wg-frame--portrait .wg-frame__canvas {
+  border-radius: 2px;
+  box-shadow:
+    0 0 0 2px var(--gold-800),
+    inset 0 0 18px rgba(0, 0, 0, 0.6);
+}
+/* Darkened at the edges like old varnish. */
+.wg-frame--portrait .wg-frame__canvas::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(20, 10, 0, 0.55) 100%),
+    linear-gradient(rgba(255, 210, 140, 0.08), rgba(255, 210, 140, 0.08));
+  pointer-events: none;
+}
+.wg-frame--portrait .wg-frame__corner,
+.wg-frame--portrait .wg-frame__plate {
+  display: block;
 }

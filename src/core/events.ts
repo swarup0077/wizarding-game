@@ -7,6 +7,7 @@ import type {
   UiActionId,
   Vec2,
 } from './types';
+import type { Settings } from './settingsTypes';
 
 /**
  * Every event the layers exchange, with its payload.
@@ -96,8 +97,11 @@ export interface EventMap {
     action?: { id: UiActionId; label: string };
   };
 
-  /** A HUD button was pressed (the camera card's seal, a toast's link...). */
+  /** A HUD button or shortcut key was pressed (the camera card's seal, a toast's link, P...). */
   'ui:action': { id: UiActionId; t: number };
+
+  /** Settings changed and were saved. `changed` names the fields that differ. */
+  'settings:changed': { settings: Settings; changed: (keyof Settings)[]; t: number };
 }
 
 /** Any event name in the game. */

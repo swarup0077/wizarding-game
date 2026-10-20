@@ -48,7 +48,7 @@ Events carry normalized [0,1] coordinates: x is a fraction of the stage width, y
   - If either axis spans less than 0.25, ask the player to move more and repeat.
   - Save the result; settings has a "Recalibrate" button.
 - **FR-6 Mouse fallback.** Holding the left button = pinch, moving = wand. It emits exactly the same `wand:*` events. Toggle with M, and offer it automatically when the camera fails.
-- **FR-7 Hand lost.** If no hand is seen for 300 ms, emit `hand:lost`. Any trace in progress is cancelled (reason `hand-lost`) and the wand dot fades out. The PiP border turns red and shows "Hand lost" until the hand returns; the filter never pretends to track a hand that isn't there.
+- **FR-7 Hand lost.** If no hand is seen for 300 ms, emit `hand:lost`. Any trace in progress is cancelled (reason `hand-lost`) and the wand dot fades out. The PiP border turns red and shows "Hand lost" until the hand returns (with the preview hidden, the status chip says "hand lost" in red instead); the filter never pretends to track a hand that isn't there.
 
 ### Recognition
 - **FR-8 Traces.** A trace is the points between `wand:pinchStart` and `wand:pinchEnd`. It is valid only if all three hold:
@@ -167,7 +167,7 @@ Events carry normalized [0,1] coordinates: x is a fraction of the stage width, y
     - On a miscast: grade **P** (Poor) with the friendly reason below.
     - On a miscast: a short friendly reason, e.g. "Shape unclear: try a rounder circle", "Heard 'loomis' but drew Incendio", "Say the spell as you cast".
   - **Mic indicator** (top-right): listening state, plus the last words heard (interim text in grey).
-  - **Webcam PiP** (bottom-right, about 20% width): mirrored, with the hand skeleton and the pinch state shown. Hidden in mouse mode.
+  - **Webcam PiP** (bottom-right, about 20% width): mirrored, with the hand skeleton and the pinch state shown. Hidden in mouse mode. Its frame style is a setting (`previewFrame`: minimal by default, or the gilded portrait). P (`showPreview`, saved) hides the picture without stopping the camera or tracking, and a small status chip (camera on, hand seen / lost) takes its place.
   - **Spell cards** (left): each spell's shape drawn from its template with a start dot and a direction arrow, the incantation, and a pronunciation hint (LOO-mos · win-GAR-dee-um lev-ee-OH-sa · in-SEN-dee-oh). A setting toggles a faint guide shape on the stage while tracing.
   - **Toasts** for `system:message`.
 - **FR-21 Sound.** Synthesized with Web Audio; no audio files.
@@ -181,6 +181,7 @@ Events carry normalized [0,1] coordinates: x is a fraction of the stage width, y
   - Input mode: hand / mouse
   - Wand hand: any / left / right (the other hand counts as no hand; FR-2)
   - Guide shapes on/off
+  - Webcam preview: shown / hidden (same as P), and its frame style
   - Master volume
   - Recalibrate, record templates, reset everything
 - **FR-23 Debug overlay** (D key).
