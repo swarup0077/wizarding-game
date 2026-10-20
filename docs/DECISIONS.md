@@ -138,3 +138,23 @@ Each entry: the decision, the alternatives, and why. Add new ones at the bottom 
 - **Decision:** Each settings field is checked on its own; a bad value falls back to that field's default, missing fields are filled in, and unknown fields are dropped. Corrupt JSON or a non-object gives all defaults. Storage is passed in (`KeyValueStore`); `browserStore()` falls back to memory if `localStorage` is blocked, and a failed save returns `false`.
 - **Alternatives:** discard the whole saved object on any problem; read `localStorage` directly.
 - **Why:** One bad value shouldn't reset the player's volume and language, and adding a setting later shouldn't wipe saved ones. Injected storage keeps the tests free of a browser (no jsdom), and blocked storage (privacy mode, quota) can never crash the app.
+
+## D-027: Node 24.x pinned in `engines` (T1)
+- **Decision:** `"engines": { "node": "24.x" }`.
+- **Alternatives:** `22.x`; a range such as `^22.12.0 || >=24.0.0`.
+- **Why:** 24 is the major version used locally, and Vercel supports 24.x (its default) and 22.x, with `engines.node` overriding the project setting. Pinning one major means local, CI and Vercel builds run the same Node. Vitest 5 also needs ≥ 22.12, which 24.x satisfies.
+
+## D-028: `?dprCap=` URL override for measuring (T1)
+- **Decision:** A `?dprCap=<0.5–3>` query parameter overrides the DPR cap in `tuning.ts`. It works in production too, and the debug overlay shows where the cap came from.
+- **Alternatives:** rebuild with a different cap for each measurement; dev builds only.
+- **Why:** Choosing the cap means comparing fps at several caps on two machines, and the Mac check happens on the deployed link. The override only changes sharpness, so leaving it in production is harmless.
+
+## D-029: The background belongs to the practice stage and is cached (T1)
+- **Decision:** The stone background is in `scenes/`, drawn once into an offscreen canvas and copied with one `drawImage` per frame. It is redrawn only after the stage size has been stable for `RENDER.resizeSettleMs`; until then, the old image is stretched. A fixed seed makes the wall identical on every load.
+- **Alternatives:** draw the stones every frame; put the background in `presentation/`.
+- **Why:** Drawing ~150 shaded stones with gradients every frame would waste integrated-GPU time for an image that never changes. Redrawing during a drag would stutter. The practice stage is throwaway (Phase 1 is 3D), so its art lives with the scene and is deleted with it.
+
+## D-030: fps is measured up to "now" (T1)
+- **Decision:** The fps meter counts frames in a sliding window and divides by the time from the oldest frame to *now*, not to the newest frame.
+- **Alternatives:** average the last N frame intervals.
+- **Why:** If frames stop (a stall or a freeze), an interval average keeps showing the last good number. Measuring up to now makes the reading fall, which is what the AC-2 measurement needs. The same meter will measure tracking fps in T4.

@@ -53,3 +53,24 @@ One entry per task. Newest at the bottom.
 Installed: Node 24.15, vite 8.3.4, typescript 6.0.3, vitest 5.0.5, eslint 10.13.0, @eslint/js 10.0.1, typescript-eslint 8.72.0, eslint-config-prettier 10.1.8, prettier 3.9.10.
 
 **Open issues:** Vitest 5 needs Node ≥ 22.12 (`engines` set; KICKOFF_PROMPT.md updated from "Node 20").
+
+## T1: Stage, render loop, debug overlay, hosting (2026-10-21)
+**Done:**
+- `presentation/view.ts` (normalized ↔ CSS px, square units → px, aspect), `canvasSize.ts` (DPR cap, backing size, `?dprCap=` override), `canvasStage.ts` (full-window canvas, resize- and DPR-change-safe, single rAF loop with a clamped time step).
+- `core/fpsMeter.ts` (sliding window; stalls lower the reading) and `core/seededRandom.ts`.
+- `scenes/scene.ts`, `practiceStage.ts`, `stoneLayout.ts`, `practiceBackground.ts`: dim night-blue castle stone with per-stone shading, mottling, grain, faint moonlight from above and a vignette. Drawn once to an offscreen canvas; redrawn only after a resize settles (150 ms).
+- `dev/debugOverlay.ts`: HTML panel (D key) with render fps (green ≥ 55, red below), canvas size and pixel ratio. Text refreshes 4×/s; hidden, it only records a timestamp.
+- `engines.node` pinned to `24.x` (D-027).
+- Hosting: Vercel, connected to GitHub. Production: https://wizarding-game.vercel.app (public; preview URLs need a Vercel login under Standard Protection).
+
+**Verify:**
+1. `npm run dev`, open http://localhost:5173: the stone stage fills the window; DevTools console has no errors.
+2. Press D: the panel shows render fps ≥ 55 (green). Press D again: it hides.
+3. Drag-resize the window and move it between monitors if you have two: no gaps or blur after the resize settles.
+4. DPR cap: open `?dprCap=1`, `?dprCap=1.5`, `?dprCap=2` and note render fps for each on the laptop (record below). Keep the highest cap that stays ≥ 55 fps.
+5. After pushing: https://wizarding-game.vercel.app shows the same page. On the Mac (DPR 2) if available, check sharpness and fps.
+
+**Numbers:** 60 tests in 8 files, ~0.35 s. Build 8 kB JS + 0.5 kB CSS.
+Render fps by DPR cap (laptop): 1 = _, 1.5 = _, 2 = _. Chosen cap: _ (default 1.5 until measured). Mac: _.
+
+**Open issues:** Fill in the fps numbers above and confirm the cap.

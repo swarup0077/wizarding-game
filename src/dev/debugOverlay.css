@@ -1,0 +1,41 @@
+.debug-overlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  min-width: 220px;
+  padding: 10px 12px;
+  border: 1px solid rgba(150, 170, 255, 0.25);
+  border-radius: 8px;
+  background: rgba(6, 9, 22, 0.82);
+  color: #d8dcf0;
+  font:
+    12px/1.6 ui-monospace,
+    'Cascadia Mono',
+    Menlo,
+    Consolas,
+    monospace;
+  pointer-events: auto;
+  user-select: text;
+}
+
+.debug-overlay[hidden] {
+  display: none;
+}
+
+.debug-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.debug-label {
+  color: #8d93b8;
+}
+
+.debug-value[data-ok='true'] {
+  color: #7be0a0;
+}
+
+.debug-value[data-ok='false'] {
+  color: #ff8a7a;
+}
