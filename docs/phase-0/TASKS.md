@@ -52,7 +52,9 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 - The idle wand dot.
 
 **Tests:** the mouse source emits the correct `wand:*` sequence (simulate events). The particle pool reuses objects and never exceeds its cap.
-**Manual check:** hold the mouse button and draw. The trail must look *magical*, not like a line tool. Send me a screenshot.
+**Manual check:**
+- Hold the mouse button and draw. The trail must look *magical*, not like a line tool. Send me a screenshot.
+- Re-measure render fps while drawing continuously, with Chrome forced to DPR 2 (`chrome.exe --force-device-scale-factor=2`), at `?dprCap=1.5` and `?dprCap=2`. Record both in `PROGRESS.md`.
 
 ## T3: Camera and webcam PiP
 **Covers:** FR-1, FR-20 (PiP), AC-10 (camera part)
@@ -207,7 +209,9 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 - Leviosa's state machine: lifted → dropped → resting.
 - Cobweb burn timing.
 
-**Manual check:** cast each spell at all three tiers (gesture-only mode helps control this), and at hit and miss targets. Send me screenshots or a short screen recording.
+**Manual check:**
+- Cast each spell at all three tiers (gesture-only mode helps control this), and at hit and miss targets. Send me screenshots or a short screen recording.
+- Re-measure render fps with Chrome forced to DPR 2 (`chrome.exe --force-device-scale-factor=2`) while Lumos is lit and Incendio is bursting, at `?dprCap=1`, `1.5` and `2`. **Set the final DPR cap** in `tuning.ts`: the highest cap that keeps ≥ 55 fps. Log the numbers and the choice in `PROGRESS.md` and `DECISIONS.md`.
 
 ## T12: Sound
 **Covers:** FR-21

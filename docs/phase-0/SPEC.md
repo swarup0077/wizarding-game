@@ -132,7 +132,7 @@ Events carry normalized [0,1] coordinates: x is a fraction of the stage width, y
 
 ### Presentation
 - **FR-17 Practice stage.**
-  - Full-window canvas, sharp on high-DPI screens and safe to resize. The device pixel ratio is capped by a value in `tuning.ts`, chosen in T1 by measuring on the Windows laptop and checking on a DPR-2 Retina MacBook, so integrated graphics keep ≥ 55 fps.
+  - Full-window canvas, sharp on high-DPI screens and safe to resize. The device pixel ratio is capped by a value in `tuning.ts`, measured in T1, re-measured with Chrome forced to DPR 2 in T2 and T11, and set for good after T11 (when the heaviest effects exist), checked on a DPR-2 Retina MacBook, so integrated graphics keep ≥ 55 fps.
   - The look: deep night-blue background with a soft vignette and a procedural stone texture (no image assets).
   - The stage is always dimly lit: the props are visible but dim, and the notice board's message can't be seen.
   - Three props:

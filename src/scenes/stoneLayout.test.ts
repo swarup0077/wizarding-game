@@ -13,7 +13,7 @@ describe('stoneLayout', () => {
     const rowTops = [...rows.keys()].sort((a, b) => a - b);
     expect(rowTops[0]).toBe(0);
     const lastTop = rowTops[rowTops.length - 1] ?? 0;
-    expect(lastTop + options.stoneHeight).toBeGreaterThanOrEqual(1);
+    expect(lastTop + (rows.get(lastTop)?.[0]?.h ?? 0)).toBeGreaterThanOrEqual(1);
 
     for (const row of rows.values()) {
       const first = row[0];
@@ -39,5 +39,21 @@ describe('stoneLayout', () => {
     expect(stoneLayout(1.5, createSeededRandom(9), options)).toEqual(
       stoneLayout(1.5, createSeededRandom(9), options),
     );
+  });
+
+  it('varies row heights within the allowed range, with rows stacked edge to edge', () => {
+    const varied = { ...options, rowHeightVariation: 0.15 };
+    const stones = stoneLayout(16 / 9, createSeededRandom(1729), varied);
+    const rows = [...new Map(stones.map((s) => [s.y, s.h])).entries()].sort((a, b) => a[0] - b[0]);
+    const heights = rows.map(([, h]) => h);
+    expect(new Set(heights).size).toBeGreaterThan(1);
+    for (const h of heights) {
+      expect(h).toBeGreaterThanOrEqual(options.stoneHeight * 0.85 - 1e-12);
+      expect(h).toBeLessThanOrEqual(options.stoneHeight * 1.15 + 1e-12);
+    }
+    rows.forEach(([top], i) => {
+      const prev = rows[i - 1];
+      if (prev) expect(top).toBeCloseTo(prev[0] + prev[1], 12);
+    });
   });
 });

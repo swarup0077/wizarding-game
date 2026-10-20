@@ -158,3 +158,13 @@ Each entry: the decision, the alternatives, and why. Add new ones at the bottom 
 - **Decision:** The fps meter counts frames in a sliding window and divides by the time from the oldest frame to *now*, not to the newest frame.
 - **Alternatives:** average the last N frame intervals.
 - **Why:** If frames stop (a stall or a freeze), an interval average keeps showing the last good number. Measuring up to now makes the reading fall, which is what the AC-2 measurement needs. The same meter will measure tracking fps in T4.
+
+## D-031: The background has a brightness budget (T1 follow-up)
+- **Decision:** Background changes must keep mean screen luma at or below the T1 level (17.4 / 255 at 1600×900), measured from a headless Chrome screenshot. After the polish pass it is 15.5.
+- **Alternatives:** judge brightness by eye.
+- **Why:** The trail and spell effects must be the brightest things on screen. Monitors and eyes differ, but a measured mean is repeatable, so later art changes can be checked against the same number.
+
+## D-032: The final DPR cap is set after T11 (T1 follow-up)
+- **Decision:** The cap stays at 1.5 (provisional). Render fps is re-measured with Chrome forced to DPR 2 in T2 (with the trail) and T11 (with Lumos and Incendio running), and the cap is set for good after T11.
+- **Alternatives:** fix the cap in T1 from the empty stage.
+- **Why:** The empty stage costs almost nothing per frame, so a T1 measurement says little. The trail (T2) and full-screen light effects (T11) are the real per-pixel costs, and the DPR-2 Retina reviewer is the worst case for pixel count.

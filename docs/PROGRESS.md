@@ -71,6 +71,27 @@ Installed: Node 24.15, vite 8.3.4, typescript 6.0.3, vitest 5.0.5, eslint 10.13.
 5. After pushing: https://wizarding-game.vercel.app shows the same page. On the Mac (DPR 2) if available, check sharpness and fps.
 
 **Numbers:** 60 tests in 8 files, ~0.35 s. Build 8 kB JS + 0.5 kB CSS.
-Render fps by DPR cap (laptop): 1 = _, 1.5 = _, 2 = _. Chosen cap: _ (default 1.5 until measured). Mac: _.
+Render fps by DPR cap (laptop): 1 = _, 1.5 = _, 2 = _. Cap stays 1.5 (provisional) until it is set after T11 (D-032). Mac: _.
 
-**Open issues:** Fill in the fps numbers above and confirm the cap.
+**Open issues:** Fill in the fps numbers above. The final cap is set after T11.
+
+## T1 follow-up: practice background polish (2026-10-21)
+**Done:** All in the once-drawn background image (no per-frame cost):
+- Depth: each stone has a lit top/left edge and a shadowed bottom/right edge.
+- Irregular: row heights vary ±15%, corners move 1–2 px inward, 12% of corners are chipped, and 3 stones carry cracks.
+- Light: a soft, cool moonlight shaft runs from the upper left and fades across the wall. The vignette is deeper, so the corners sink into darkness.
+- Colour: small per-stone hue shifts, about a quarter of the stones a cooler grey, faint moss on some stones near the bottom.
+- New pure module `scenes/stoneShape.ts` (outline with jitter and chips, crack paths), lighting split into `scenes/practiceLighting.ts`.
+- T2 and T11 now include a DPR-2 fps re-measure; the final cap is set after T11.
+
+**Verify:** `npm run dev`: the shaft is visible as a slightly brighter diagonal band from the upper left; cracks are near the top centre and lower left of centre; the corners are darker than before.
+
+**Numbers (1600×900 screenshot, 0–255 luma):**
+
+| | Mean | 99th percentile | Corners | Centre |
+|---|---|---|---|---|
+| Before | 17.4 | 37 | 9.8 | 27.4 |
+| After | 15.5 | 41 | 7.9 | 27.4 |
+
+Overall brightness is lower. The 99th percentile rose slightly because a few stones inside the shaft are lit.
+73 tests, ~0.3 s.
