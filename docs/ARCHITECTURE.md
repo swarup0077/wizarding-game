@@ -35,7 +35,10 @@ src/
     clock.ts                 injectable now() for tests
   settings/settings.ts       persisted user settings (versioned)
   input/
-    camera.ts                getUserMedia + permission/device errors
+    camera.ts                getUserMedia + Permissions API (browser-only, thin); owns the one <video>
+    cameraErrors.ts          pure: getUserMedia error + permission state → failure kind
+    cameraFlow.ts            pure: camera recovery state machine (retry, auto-start, ended, mouse)
+    cameraController.ts      bus ↔ cameraFlow ↔ camera; emits camera:status
     wandSource.ts            WandSource interface
     mouseWandSource.ts       mouse fallback (same events as the hand)
   perception/
@@ -72,6 +75,8 @@ src/
     particles.ts             pooled particle system
     effects/                 fizzle.ts, lumos.ts, leviosa.ts, incendio.ts
     hud/                     resultCard.ts, micIndicator.ts, webcamPip.ts, spellCards.ts, toasts.ts (HTML/CSS over the canvas)
+                             cameraCard.ts, mountHud.ts, hud.css; pure: cameraCopy.ts (all camera wording),
+                             toastQueue.ts, platform.ts
     audio/sfx.ts             Web Audio synthesized sounds
   ui/                        the UI kit (part of presentation; docs/ART_DIRECTION.md)
     theme.css                design tokens and @font-face
@@ -85,6 +90,7 @@ src/
     templateRecorder.ts
     settingsPanel.ts
     uiGallery.ts             ?dev=ui: every kit component in every state
+    cameraSim.ts             ?dev=camera: render any camera state (fail=<kind>, simulate=ended, enable=1)
 public/
   fonts/                     self-hosted woff2 + OFL licences (NFR-8)
   models/hand_landmarker.task  committed to git, so deploys never download it
@@ -114,6 +120,10 @@ Payloads must be **plain JSON-serializable data** (no DOM objects, no functions)
 
 ```ts
 export interface EventMap {
+  'camera:status':       { state: 'idle' | 'starting' | 'live' | 'off' | 'failed';
+                           failure?: CameraFailureKind; detail?: string; auto?: boolean;
+                           actual?: { width: number; height: number; frameRate: number | null; label: string };
+                           retriedUnconstrained?: boolean; t: number };   // idle = not asked yet; off = mouse chosen
   'hand:found':          { t: number };
   'hand:lost':           { t: number };
   'hand:landmarks':      { points: Vec2[]; t: number };              // debug + PiP skeleton only
@@ -136,9 +146,12 @@ export interface EventMap {
   'spell:miscastHeard':  { spellId: SpellId; heard: string; t: number }; // heard after an unrecognized-shape fizzle: updates the hint only
   'spell:ended':         { spellId: SpellId; t: number };            // sustained spells
   'system:message':      { level: 'info' | 'warn' | 'error'; text: string;
-                           action?: { id: string; label: string } };
+                           action?: { id: UiActionId; label: string } };
+  'ui:action':           { id: UiActionId; t: number };  // a HUD button: 'camera.enable' | 'camera.retry' | 'camera.useMouse'
 }
 ```
+Input reports camera failures as a `CameraFailureKind` (data); presentation alone turns a kind into words. HUD buttons talk back through `ui:action`, never through callbacks. DOM objects that can't travel on the bus (the camera's `<video>`) are handed out by `main.ts`: the preview shows the same element the hand tracker reads.
+
 The bus has `on(type, handler) → unsubscribe` and `emit(type, payload)`. Dispatch is synchronous. A throwing handler is caught and logged so it can't break the others.
 
 ## Spell data

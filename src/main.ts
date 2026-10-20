@@ -1,12 +1,17 @@
-import { RENDER } from './config/tuning';
+import { CAMERA, RENDER } from './config/tuning';
+import { systemClock } from './core/clock';
 import { createEventBus, type EventBus } from './core/eventBus';
 import type { EventMap } from './core/events';
 import { createDebugOverlay, type DebugOverlay } from './dev/debugOverlay';
 import { createFpsReporter } from './dev/fpsReporter';
 import type { StrokeDemo } from './dev/strokeDemo';
+import { createBrowserCamera } from './input/camera';
+import { createCameraController } from './input/cameraController';
 import { createMouseWandSource, type HandRatePreview } from './input/mouseWandSource';
 import { parseDprCapOverride } from './presentation/canvasSize';
 import { createCanvasStage, type CanvasStage } from './presentation/canvasStage';
+import { mountHud } from './presentation/hud/mountHud';
+import { detectPlatform, parsePlatformOverride } from './presentation/hud/platform';
 import type { ReleaseOutcome } from './presentation/trailColors';
 import { createTrailLayer, type TrailLayer } from './presentation/trailLayer';
 import { createPracticeStage } from './scenes/practiceStage';
@@ -67,13 +72,27 @@ export async function bootstrap(): Promise<App> {
   const scene = createPracticeStage();
   await scene.load({ bus });
 
+  // The camera (T3): the HUD subscribes first, then the controller reports `idle`, which
+  // shows the "Enable camera" card. Nothing is requested until the player clicks.
+  const hud = requireElement('hud');
+  const camera = createBrowserCamera();
+  const cameraState = watchCameraStatus(bus);
+  const platform = parsePlatformOverride(params.get('platform')) ?? detectPlatform();
+  mountHud({ parent: hud, bus, video: camera.video, platform, now: () => systemClock.now() });
+  createCameraController({ bus, camera, clock: systemClock }).start();
+  if (params.get('dev') === 'camera') {
+    const { startCameraSim } = await import('./dev/cameraSim');
+    startCameraSim(params, bus, camera.video);
+  }
+
   // The UI kit gallery is a dev tool, downloaded only for `?dev=ui` (T2b).
   if (params.get('dev') === 'ui') {
     const { mountUiGallery } = await import('./dev/uiGallery');
-    mountUiGallery(requireElement('hud'));
+    mountUiGallery(hud);
   }
 
   const overlay = buildOverlay(stage, dprCap, capOverride !== null, handRate, trail);
+  addCameraStats(overlay, cameraState);
   const report = params.get('reportFps') === '1' ? createFpsReporter(stage.frameWorkMs) : null;
   stage.start(scene, (t) => {
     overlay.frame(t);
@@ -112,6 +131,36 @@ function buildOverlay(
   });
   overlay.addChoice('Release preview', RELEASE_PREVIEWS, 'fade', trail.setReleasePreview);
   return overlay;
+}
+
+/** Keeps the latest camera status, for the debug overlay. */
+function watchCameraStatus(bus: EventBus<EventMap>): () => EventMap['camera:status'] | null {
+  let latest: EventMap['camera:status'] | null = null;
+  bus.on('camera:status', (status) => {
+    latest = status;
+  });
+  return () => latest;
+}
+
+/** Debug rows for the camera: state, and what it actually delivers (often less than asked). */
+function addCameraStats(
+  overlay: DebugOverlay,
+  status: () => EventMap['camera:status'] | null,
+): void {
+  const asked = `${CAMERA.idealWidth}×${CAMERA.idealHeight} @ ${CAMERA.idealFps}`;
+  overlay.addStat('Camera', () => {
+    const s = status();
+    return s ? (s.failure ?? s.state) : '–';
+  });
+  overlay.addStat('Camera actual', () => {
+    const a = status()?.actual;
+    if (!a) return '–';
+    const fps = a.frameRate === null ? '?' : a.frameRate.toFixed(0);
+    const got = `${a.width}×${a.height} @ ${fps}`;
+    if (status()?.retriedUnconstrained) return `${got} fps (defaults)`;
+    return got === asked ? `${got} fps` : `${got} fps (asked ${asked})`;
+  });
+  overlay.addStat('Camera device', () => status()?.actual?.label || '–');
 }
 
 bootstrap().catch((error: unknown) => {

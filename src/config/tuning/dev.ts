@@ -19,3 +19,9 @@ export const DEBUG = {
   fpsWindowMs: 1000,
   eventLogSize: 20,
 };
+
+/** `?dev=camera`: the camera dev trigger (screenshots, checking messages). */
+export const DEV_CAMERA = {
+  /** With `&simulate=ended`, the camera track is ended this long after it goes live. */
+  simulateEndedAfterMs: 2000,
+};

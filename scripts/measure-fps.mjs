@@ -15,7 +15,8 @@
 // It opens a visible Chrome window (headless Chrome renders in software, so its fps means
 // nothing) with a throwaway profile, and flags that stop Chrome pausing a covered window.
 // "Retina" runs use device emulation at 1440×900 CSS px and DPR 2: the reviewer's MacBook
-// pixel count (2880×1800) on this GPU. Each page logs fps, its longest frame gap and our
+// pixel count (2880×1800) on this GPU. Camera runs use Chrome's fake camera, so they need
+// no webcam and show no prompt. Each page logs fps, its longest frame gap and our
 // work per frame once a second (`?reportFps=1`); the first 2 s (startup) are skipped.
 import { execSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync } from 'node:fs';
@@ -33,6 +34,9 @@ const RUNS = [
   // The UI kit gallery: every HUD component, filters and animations, over the stage (T2b).
   { name: 'native-ui-gallery', query: 'dev=ui' },
   { name: 'retina-cap2-ui-gallery', retina: true, query: 'dprCap=2&dev=ui' },
+  // The webcam preview, fed by Chrome's built-in fake camera (T3).
+  { name: 'native-camera', query: 'dev=camera&enable=1' },
+  { name: 'retina-cap2-camera', retina: true, query: 'dprCap=2&dev=camera&enable=1' },
 ];
 const PREVIEW_PORT = 4173;
 const STARTUP_SKIP_MS = 2000;
@@ -182,6 +186,9 @@ async function main() {
       '--disable-backgrounding-occluded-windows',
       '--disable-renderer-backgrounding',
       '--disable-background-timer-throttling',
+      // A synthetic camera that is allowed without a prompt, for the camera runs.
+      '--use-fake-device-for-media-stream',
+      '--use-fake-ui-for-media-stream',
       'about:blank',
     ],
     { stdio: 'ignore', detached: process.platform !== 'win32' },

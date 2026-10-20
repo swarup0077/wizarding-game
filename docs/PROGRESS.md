@@ -22,7 +22,7 @@ One entry per task. Newest at the bottom.
 | AC-7 Full casts ≥ 8/10 | – | |
 | AC-8 Effects and tiers | – | |
 | AC-9 Mouse mode casts all 3 | – | |
-| AC-10 Fallbacks | – | |
+| AC-10 Fallbacks | Camera part done (T3) | Deny → card + mouse offered. Mic part: T9. Firefox part: T9/T13 |
 | AC-11 Hand lost cancels trace | – | |
 | AC-12 Checks pass, no console errors | – | |
 | AC-13 Dummy 4th spell test | – | |
@@ -191,3 +191,52 @@ A follow-up run with timestamps showed every long gap inside the first 2.2 s aft
 
 **Open issues:**
 - The gallery's "SPELLBOOK" heading still shows Cinzel Decorative's joined "OO" even with ligatures off; it is a glyph variant of the font. If it bothers you in spell names or titles, those can use plain Cinzel.
+
+## T3: Camera and webcam preview (2026-10-21)
+**Done:**
+- `input/`: `cameraErrors.ts` (pure: error + permission → one of 10 failure kinds), `cameraFlow.ts` (pure recovery state machine with attempt numbers), `camera.ts` (thin: getUserMedia with an unconstrained retry on OverconstrainedError, the Permissions API and its change event, track `ended`, `getSettings()`; owns the one `<video>`), `cameraController.ts` (bus glue).
+- New events `camera:status` and `ui:action`; `CameraFailureKind`, `CameraActual` and `UiActionId` in `core/types.ts`.
+- `presentation/hud/`: `cameraCopy.ts` (every camera line, per platform), `platform.ts`, `toastQueue.ts` (all pure), and `webcamPip.ts` (gilded-frame portrait, mirrored, bottom-right, 20% width clamped to 200–360 px, `pointer-events: none`, shown only while live), `cameraCard.ts` (one parchment panel, wax-seal Enable/Retry, ink link "Use the mouse instead"), `toasts.ts` (3 reused ink-note slots for `system:message`), `mountHud.ts`, `hud.css`.
+- Recovery without a reload: Retry on every card except insecure and unsupported; the camera starts by itself when the permission changes to granted after a denial; a track that ends mid-session shows "The camera stopped", hides the preview and leaves the mouse drawing.
+- Debug overlay (D): **Camera** (state or failure kind), **Camera actual** (`getSettings()`, with "asked 640×480 @ 30" when different), **Camera device**.
+- Dev trigger `?dev=camera`: `&fail=<kind>` (with `&platform=mac|windows|other`), `&enable=1`, `&simulate=ended`. It works on the deployed link too.
+- Lint: input may not import perception, recognition, spells, scenes, presentation, ui or dev (checked with a throwaway violating file).
+- `measure:fps`: new `native-camera` and `retina-cap2-camera` runs on Chrome's fake camera.
+- LATER: camera picker for several cameras.
+
+**Verify:**
+1. `npm run dev`, open http://localhost:5173: the "Your wand hand" card. Click **Enable camera** and choose Allow in Chrome's prompt. The card closes and your mirrored picture appears in the gilded frame bottom-right: raise your right hand and it shows on the right, like a mirror. Draw a stroke across the frame: it draws (the frame never takes clicks).
+2. Press D: the **Camera actual** row shows what your webcam really delivers (often less than 640×480 @ 30 on a laptop) and its name.
+3. Blocked: click the camera icon at the right end of the address bar → Block, reload and click Enable camera. You get "The camera is blocked". Now set it back to Allow from the same icon, with no reload: the toast "Camera allowed. Waking it now." appears and the preview comes back.
+4. Busy: open the Windows Camera app (or Teams with video), then reload and click Enable camera. You get "The camera is busy". Close the other app and press Retry: live.
+5. Ended: with the camera live, open `?dev=camera&enable=1&simulate=ended` (or unplug a USB camera). After 2 s you get "The camera stopped", the preview hides and the mouse still draws. Press Retry: live again.
+6. **Use the mouse instead** on any card: the card closes, the camera light goes off, and the toast "Using the mouse: hold the left button and draw." appears.
+7. Every card: `?dev=camera&fail=<kind>&platform=mac`, with kind one of denied-by-user, denied-by-system, dismissed, not-found, in-use, insecure, unsupported, aborted, ended, unknown.
+8. On the Mac (AC-15, later): Chrome → System Settings → Privacy & Security → Camera, switch Chrome off, open the deployed link and click Enable camera. You should get "Your Mac is keeping the camera from Chrome".
+
+**Numbers:**
+- 200 tests in 29 files (~0.9 s); new: cameraErrors 14, cameraFlow 13, cameraController 7, cameraCopy 12, toastQueue 4, platform 3.
+- Build: 45 kB JS main (18 kB gzip); `cameraSim` is a separate 1 kB chunk.
+- Chrome's fake camera delivers 640×480 @ 20 fps when asked for 30, and the debug row shows "(asked 640×480 @ 30)": that is the case the row exists for.
+- `measure:fps` (Iris Xe, 15 s per run after startup; the camera runs use the fake camera):
+
+| Run | Canvas (device px) | fps mean / min | Longest frame gap | Seconds with a gap > 25 ms | Our work per frame (mean / max) |
+|---|---|---|---|---|---|
+| native-idle | 1920×900 | 60.0 / 60 | 17.8 ms | 0 of 16 | 0.18 / 0.25 ms |
+| retina-cap2-idle | 2880×1800 | 60.0 / 60 | 17.6 ms | 0 of 16 | 0.19 / 0.53 ms |
+| native-camera | 1920×900 | 60.0 / 60 | 18.1 ms | 0 of 16 | 0.14 / 0.17 ms |
+| retina-cap2-camera | 2880×1800 | 60.0 / 60 | 17.6 ms | 0 of 16 | 0.10 / 0.13 ms |
+
+- Checked automatically in headless Chrome on the fake camera, with no console errors or exceptions in any run:
+  - the real live preview (mirrored, 324×252 at 1440 wide, 24 px from the corner, the stage under it receives clicks);
+  - a real denial (`--deny-permission-prompts`) giving the blocked card;
+  - granting the permission afterwards (DevTools `Browser.grantPermissions`) starting the camera by itself;
+  - `simulate=ended`, then Retry, back to live;
+  - Use the mouse, which stops the track and hides the preview.
+
+**Open issues:**
+- The macOS "blocked by the system" path was checked only through the dev trigger. Chrome's "by system" wording and the relaunch behaviour need one real check on the Mac (AC-15).
+- Real NotFoundError and NotReadableError were not reproduced on this laptop (it has a camera, and nothing was holding it). Their cards are covered by the unit tests and the dev trigger; step 4 above checks "busy" by hand.
+- A kit note for later HUD panels: `.wg-unroll` keeps its last frame (fill mode `both`), so a hidden panel must drop the class, or it stays visible (D-053).
+- Headless Chrome stalls when capturing DPR-2 screenshots of filtered parchment; DPR-2 screenshots use a visible Chrome (GPU).
+

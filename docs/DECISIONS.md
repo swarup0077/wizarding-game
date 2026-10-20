@@ -264,3 +264,37 @@ Each entry: the decision, the alternatives, and why. Add new ones at the bottom 
 - **Decision:** Body text is IM Fell English, handwriting is Pinyon Script, and Cinzel Decorative is used for titles, spell names **and** small labels. EB Garamond, plain Cinzel and Petit Formal Script were removed with their licences (5 files, 187 KB remain).
 - **Alternatives:** EB Garamond for body and plain Cinzel for labels (my recommendation, for legibility at HUD sizes).
 - **Why:** Chosen by eye from the side-by-side comparison: IM Fell English's old-print texture and Cinzel Decorative's swash capitals give the strongest period feel. Legibility checked at DPR 2: body, italic hints, labels and the green address all read clearly. To keep it that way, labels stay bold, uppercase and at least 13 px, with ligatures off, and body text stays short. Cinzel Decorative's capitals give "THE" a joined look even with ligatures off; that is the font's design, accepted with the choice.
+
+## D-049: Input reports a camera failure kind; presentation words it (T3)
+- **Decision:** `input/cameraErrors.ts` turns a getUserMedia error plus the permission state into one `CameraFailureKind` (10 kinds, in `core/types.ts`). `presentation/hud/cameraCopy.ts` turns a kind and the platform (mac / windows / other) into a title, a body with the next step, and whether Retry can help. The camera toasts ("Using the mouse…", "Camera allowed…") are also chosen in presentation, from `camera:status` changes, not emitted by the controller.
+- **Alternatives:** one function in input from error name to message; text carried on `camera:status` (as `voice:status.message` allows).
+- **Why:** Input never knows how anything is shown, so wording can change (or be translated) without touching input, and a lint rule now enforces it. Both steps are pure, so every case is tested, including the full chain from a DOMException to the words.
+
+## D-050: Telling the three NotAllowedErrors apart (T3)
+- **Decision:** In order: Chrome's message contains "by system" → `denied-by-system`; it contains "dismissed" → `dismissed`; the Permissions API says `granted` → `denied-by-system` (the site is allowed, so something below Chrome refused); otherwise `denied-by-user`. The "you clicked Block" message on a Mac or Windows also mentions the system privacy page, in case the permission couldn't be read.
+- **Alternatives:** the Permissions API alone; one message for every NotAllowedError.
+- **Why:** Chrome's message text is the most direct signal of an OS block (macOS System Settings → Privacy & Security → Camera), and the permission state is the fallback. The fixes are in different places (the address-bar camera icon vs System Settings, plus a Chrome relaunch on macOS), so one message would send half the players to the wrong place. A dismissed prompt gets its own message because Retry really does ask again.
+
+## D-051: Camera recovery is a pure state machine with attempt numbers (T3)
+- **Decision:** `input/cameraFlow.ts` (idle → starting → live / failed / off) decides what every click, result and browser event does. Rules: a click while starting is ignored; a permission change to `granted` restarts the camera by itself only after the player asked and was refused; an ended track stops the camera and reports `ended` (or `denied-by-user` if access was revoked), with the mouse active meanwhile; each start has an attempt number, and a success from a stale attempt (for example after "Use the mouse") is stopped at once. The camera never starts on load, even when permission was granted on an earlier visit: it waits for the click.
+- **Alternatives:** callbacks and flags inside the browser wrapper; auto-starting when the permission is already granted.
+- **Why:** The races (a prompt still open while the player picks the mouse, a permission change arriving during a retry) are where camera code usually breaks. As a pure reducer they are unit-tested, and the browser wrapper stays thin. Waiting for the click matches the T13 letter flow and means the camera light never comes on unexpectedly.
+
+## D-052: HUD buttons talk back through `ui:action` (T3)
+- **Decision:** A new `ui:action` event `{ id: UiActionId; t }`, where `UiActionId` is a string union ('camera.enable' | 'camera.retry' | 'camera.useMouse'). `system:message.action.id` uses the same type, so a toast's button takes the same path.
+- **Alternatives:** callbacks wired in `main.ts`; one event per button.
+- **Why:** Layers talk only through the bus (CLAUDE.md). One typed event covers every HUD button, and a new action is one new member of the union.
+
+## D-053: One <video>, mirrored by CSS; T3's mouse mode lasts the session; no Retry where it can't help (T3)
+- **Decision:**
+  - `input/camera.ts` owns the session's single `<video>` element. The preview shows it now and the hand tracker (T4) will read it, so the stream is decoded once. It is mirrored with `transform: scaleX(-1)` and sits in a 4:3 window (`object-fit: cover`).
+  - The preview, the card and the toast slots are built once and shown with opacity. The card also drops the kit's `wg-unroll` class when hidden, because that animation's fill mode holds it at full opacity, and it is `inert` while hidden.
+  - "Use the mouse instead" is not saved to `settings.inputMode` in T3. T5 (the M key) starts saving it.
+  - The insecure-page and no-camera-API cards have no Retry, only "Use the mouse instead".
+- **Alternatives:** a second video element for the tracker; saving mouse mode now; Retry on every card.
+- **Why:** Two elements would decode the stream twice. Saving the choice before there is a way back (no M key until T5, no settings panel until T13) would hide the camera for good. A Retry that cannot work misleads.
+
+## D-054: Automated camera runs always use Chrome's fake camera (T3)
+- **Decision:** Every scripted Chrome run that may touch the camera (`measure:fps` and screenshot scripts) passes `--use-fake-device-for-media-stream`. The real "no camera" path is checked through the dev trigger (`?dev=camera&fail=not-found`), not by launching Chrome without the fake device.
+- **Alternatives:** a headless run without the fake device to get a real NotFoundError.
+- **Why:** In T3 a headless run without the fake device (meant to produce NotFoundError) opened this laptop's real webcam for a few seconds and captured a frame. The image was deleted at once and never left the machine. The fake camera makes every scripted run private and repeatable.

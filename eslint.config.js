@@ -93,6 +93,24 @@ export default tseslint.config(
     },
   },
   {
+    // Input reports what devices do; it never knows how anything is shown or used (T3).
+    files: ['src/input/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        layerImportBan([
+          'perception',
+          'recognition',
+          'spells',
+          'scenes',
+          'presentation',
+          'ui',
+          'dev',
+        ]),
+      ],
+    },
+  },
+  {
     files: ['src/perception/**'],
     rules: {
       'no-restricted-imports': [

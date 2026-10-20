@@ -1,0 +1,79 @@
+/* HUD layout (T3): where the kit's pieces sit over the stage. Colours, fonts and textures
+   all come from the kit; this file only places, mirrors and shows or hides them. Panels are
+   built once and shown with opacity (D-046), so their filtered paper is painted only once. */
+
+/* The webcam preview: a moving portrait, bottom-right. Never takes clicks. */
+.wg-pip {
+  position: absolute;
+  opacity: 0;
+  transition: opacity var(--dur-ink) var(--ease-ink);
+}
+.wg-pip,
+.wg-pip * {
+  pointer-events: none;
+}
+.wg-pip.is-shown {
+  opacity: 1;
+}
+.wg-pip video {
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  /* Mirrored like a selfie, matching the mirrored wand coordinates. */
+  transform: scaleX(-1);
+}
+
+/* The camera card, centred over the stage. The layer itself lets clicks through; the card
+   takes them only while shown, so a click on its paper never draws a stroke. */
+.wg-camera-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  pointer-events: none;
+}
+.wg-camera-card {
+  width: min(500px, 100%);
+  opacity: 0;
+  pointer-events: none;
+}
+.wg-camera-card.is-shown {
+  opacity: 1;
+  pointer-events: auto;
+}
+.wg-camera-card [hidden] {
+  display: none;
+}
+
+/* Toasts: ink notes stacked at the bottom centre, oldest on top. */
+.wg-toasts {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: min(460px, calc(100% - 2 * var(--space-4)));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.wg-toast {
+  opacity: 0;
+}
+.wg-toast:not(.is-shown) {
+  position: absolute;
+}
+.wg-toast.is-shown {
+  opacity: 1;
+}
+.wg-toast .wg-ink-link {
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wg-pip {
+    transition: none;
+  }
+}

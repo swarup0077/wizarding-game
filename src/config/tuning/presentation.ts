@@ -111,6 +111,14 @@ export const EFFECTS = {
 /** FR-20: HUD. */
 export const HUD = {
   resultCardMs: 2000,
-  /** Webcam PiP width as a fraction of the window width. */
+  /** Webcam PiP width as a fraction of the window width, kept between the min and max. */
   pipWidthFraction: 0.2,
+  pipMinWidthPx: 200,
+  pipMaxWidthPx: 360,
+  /** Gap between the PiP and the window's bottom-right corner. */
+  pipMarginPx: 24,
+  /** Toasts shown at once; a new one replaces the oldest. */
+  toastMax: 3,
+  /** How long a toast stays, by level. Initial guess, tuned in T13. */
+  toastMs: { info: 4000, warn: 6000, error: 9000 },
 };

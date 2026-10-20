@@ -72,7 +72,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 
 ## T3: Camera and webcam preview
 **Covers:** FR-1, FR-20 (preview, toasts), AC-10 (camera part)
-**Build** (with the T2b kit; see the T3 plan for error kinds and recovery):
+**Build** (with the T2b kit; error kinds and recovery as agreed in the T3 plan, recorded in D-049 to D-053):
 - `input/camera.ts`, with a distinct error for each failure type.
 - `hud/webcamPip.ts`: the mirrored preview inside the **gilded frame** (a moving portrait). `pointer-events: none`.
 - The camera card: a **parchment panel** with **wax-seal** Retry and a quiet "Use the mouse instead" link.

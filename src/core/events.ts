@@ -1,4 +1,12 @@
-import type { SpellId, Tier, TracePoint, Vec2 } from './types';
+import type {
+  CameraActual,
+  CameraFailureKind,
+  SpellId,
+  Tier,
+  TracePoint,
+  UiActionId,
+  Vec2,
+} from './types';
 
 /**
  * Every event the layers exchange, with its payload.
@@ -6,6 +14,23 @@ import type { SpellId, Tier, TracePoint, Vec2 } from './types';
  * so a later multiplayer phase can send them over the network unchanged.
  */
 export interface EventMap {
+  /**
+   * The webcam's state (FR-1). `idle`: not asked for yet. `off`: the player chose the mouse.
+   * `failed` carries the kind of failure and the browser's own error text (`detail`).
+   */
+  'camera:status': {
+    state: 'idle' | 'starting' | 'live' | 'off' | 'failed';
+    failure?: CameraFailureKind;
+    detail?: string;
+    /** On `starting`: the camera started by itself because access was just allowed. */
+    auto?: boolean;
+    /** On `live`: what the camera delivers. */
+    actual?: CameraActual;
+    /** On `live`: the camera refused the ideal size and frame rate, so its defaults are used. */
+    retriedUnconstrained?: boolean;
+    t: number;
+  };
+
   'hand:found': { t: number };
   'hand:lost': { t: number };
   /** Debug and PiP skeleton only. */
@@ -68,8 +93,11 @@ export interface EventMap {
   'system:message': {
     level: 'info' | 'warn' | 'error';
     text: string;
-    action?: { id: string; label: string };
+    action?: { id: UiActionId; label: string };
   };
+
+  /** A HUD button was pressed (the camera card's seal, a toast's link...). */
+  'ui:action': { id: UiActionId; t: number };
 }
 
 /** Any event name in the game. */
