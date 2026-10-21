@@ -25,12 +25,12 @@ Events carry normalized [0,1] coordinates: x is a fraction of the stage width, y
 - **FR-2 Hand tracking.**
   - Use MediaPipe `HandLandmarker` (`@mediapipe/tasks-vision`) in `VIDEO` running mode with `numHands: 1`.
   - If a wand-hand preference is set (FR-22) and the tracked hand is the other one, treat it as no hand (FR-7). MediaPipe's handedness labels assume a mirrored image, so swap them for raw webcam frames before comparing.
-  - Try the `GPU` delegate first and fall back to `CPU` automatically, recording which one is active in the debug overlay.
+  - Choose the delegate automatically, recording which one is active (and on which thread) in the debug overlay. In the hand worker, try `CPU` first, then `GPU`; on the main-thread fallback, `GPU` first, then `CPU` (measured in T4, D-068). `?delegate=cpu|gpu` forces one for measuring.
   - Serve the wasm files and model locally from `public/` (no CDN at runtime). Model source: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task` (confirm against the official MediaPipe web guide).
   - The model file is committed to git, so builds and deploys never download it. The wasm files are copied from `node_modules` at install time (versions pinned by `package-lock.json`).
-  - Run detection once per new video frame, decoupled from rendering.
+  - Run detection once per new video frame, decoupled from rendering, in a classic Web Worker (T4, D-064): one frame in flight at most, newer frames dropped while it is busy, and every result stamped with its frame's capture time.
+  - If the worker can't start, or fails mid-session (a crash or an overdue result), restart it once, then fall back to detection on the main thread automatically. The debug overlay shows where detection runs and why.
   - If tracking fps stays below 20 for 3 s, show a tip: improve lighting, keep your hand 40–80 cm from the camera.
-  - If average detection time blocks rendering below 55 fps, propose (don't silently do) moving detection to a Web Worker.
 - **FR-3 Wand point.**
   - The wand point is always the midpoint of the thumb tip (landmark 4) and index tip (landmark 8), so it doesn't jump when a pinch starts.
   - Smooth it with a One Euro filter (parameters in `tuning.ts`).
@@ -200,9 +200,10 @@ Events carry normalized [0,1] coordinates: x is a fraction of the stage width, y
   The default recognizer is the one with the best accuracy *while* keeping false accepts ≤ 5%. A tie goes to Protractor, which is faster.
 
 ## Non-functional requirements
-- **NFR-1 Performance** (Chrome, on the target laptop):
+- **NFR-1 Performance** (Chrome, on the target laptop; measured with `npm run measure:fps`, D-065):
   - tracking ≥ 25 fps;
-  - rendering ≥ 55 fps;
+  - during a 60 s run of continuous drawing with the camera on: rendering ≥ 55 fps, **at most 1 late frame per second** (a real gap between frames over 25 ms, averaged over the run; the worst second is reported too), and **no real gap over 50 ms**;
+  - the tracker's first load (a fresh browser profile) causes **no real gap over 50 ms**: the first-load freeze must not reach the screen;
   - average detection time recorded in `PROGRESS.md`.
 - **NFR-2 Latency:**
   - The trail follows the hand with no visible lag (target under 100 ms).
@@ -222,7 +223,7 @@ Events carry normalized [0,1] coordinates: x is a fraction of the stage width, y
 
 ## Acceptance criteria
 - **AC-1** On a fresh load in Chrome, getting from "Begin" to the practice stage (permissions + calibration) takes under 20 s with only on-screen instructions.
-- **AC-2** While casting, the debug overlay shows tracking ≥ 25 fps and render ≥ 55 fps. Record the numbers.
+- **AC-2** `measure-fps` (60 s of continuous drawing, camera on, the hand clip, a fresh profile per run) shows tracking ≥ 25 fps and the NFR-1 render bar: ≥ 55 fps, ≤ 1 late frame (> 25 ms) per second, no real gap over 50 ms, and no gap over 50 ms while the tracker first loads. Laptop and Retina emulation. Record the numbers.
 - **AC-3** Moving the hand around for 60 s without pinching produces zero casts and zero fizzles.
 - **AC-4** Reading a paragraph aloud for 60 s without pinching produces zero casts.
 - **AC-5** Gesture accuracy, in gesture-only mode, 20 deliberate attempts per spell:
@@ -241,7 +242,7 @@ Events carry normalized [0,1] coordinates: x is a fraction of the stage width, y
 - **AC-12** `typecheck`, `lint`, `test` and `build` pass with zero errors or warnings, and a 5-minute session produces no console errors from our code. Known startup lines that MediaPipe's wasm prints (some appear as errors) are listed in `PROGRESS.md` and don't count.
 - **AC-13** A unit test registers a dummy 4th spell (data + template + effect) and runs it through recognition and fusion end to end, **without editing any recognition or fusion source file**.
 - **AC-14** The benchmark runs on ≥ 20 real webcam test samples per spell and ≥ 30 negatives. The chosen recognizer meets AC-5's accuracy with a false-accept rate ≤ 5% on negatives. Results and the choice are recorded in `PROGRESS.md` and `DECISIONS.md`.
-- **AC-15** The deployed link, opened in Chrome on a Mac, passes AC-1, AC-7, AC-9 and AC-10 (its camera and mic parts; the Firefox part is checked on Windows). Checked once, before the link is shared.
+- **AC-15** The deployed link, opened in Chrome on a Mac, passes AC-1, AC-7, AC-9 and AC-10 (its camera and mic parts; the Firefox part is checked on Windows). Also compare the worker's delegates there: the debug overlay's Detection and Tracking fps rows with the default (Worker · CPU) and with `?delegate=gpu`. If the GPU wins clearly on the Mac, propose a per-platform default (D-068). Checked once, before the link is shared.
 
 ## Out of scope for Phase 0
 - 3D and Three.js, physics engines, player movement

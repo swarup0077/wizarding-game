@@ -8,6 +8,7 @@ import { isCameraFailureKind } from '../presentation/hud/cameraCopy';
 // wording on another machine (it works on the deployed link too). Downloaded only when used.
 //   &fail=<kind>       show that failure's card (e.g. fail=denied-by-system&platform=mac)
 //   &enable=1          press "Enable camera" at startup (scripted fps runs)
+//   &enable=<ms>       ...or this many ms after startup (T4: measures tracker start apart from page load)
 //   &simulate=ended    end the real camera track a moment after it goes live
 
 /** Typical browser error text per kind, for the card's fine print. */
@@ -40,7 +41,10 @@ export function startCameraSim(
       t: now(),
     });
 
-  if (params.get('enable') === '1') bus.emit('ui:action', { id: 'camera.enable', t: now() });
+  const enable = Number(params.get('enable'));
+  const pressEnable = (): void => bus.emit('ui:action', { id: 'camera.enable', t: now() });
+  if (enable === 1) pressEnable();
+  else if (enable > 1) setTimeout(pressEnable, enable);
 
   if (params.get('simulate') === 'ended') {
     let armed = true;

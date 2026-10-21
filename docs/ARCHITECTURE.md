@@ -47,8 +47,14 @@ src/
     mouseWandSource.ts       mouse fallback (same events as the hand)
     keyboardActions.ts       shortcut keys → ui:action (P now; M in T5, S in T13)
   perception/
-    handTracker.ts           HandLandmarker wrapper (browser-only, thin; the only file that imports MediaPipe)
-    videoFrameLoop.ts        requestVideoFrameCallback, with a rAF fallback (browser-only, thin)
+    handTracker.ts           the tracker other layers know: lifecycle, events, backend choice and fallback
+    detectors/               backend.ts (interface), workerBackend.ts (frames → the worker), mainThreadBackend.ts (fallback)
+    worker/handWorker.ts     the hand worker (classic; own tsconfig with WebWorker globals)
+    landmarkerFactory.ts     MediaPipe load, delegate choice, warm-up: the only file that imports MediaPipe
+    workerProtocol.ts        pure: the main ↔ worker messages and their guards
+    trackerPolicy.ts         pure: restart once → main thread → give up; dev overrides
+    trackerMetrics.ts        pure: tracking / video fps, detection time, capture → result latency, skeleton skew
+    videoFrameLoop.ts        requestVideoFrameCallback with capture time, rAF fallback (browser-only, thin)
     detectScheduler.ts       pure: one detection per new frame, never two at once, increasing timestamps
     delegateFallback.ts      pure: GPU then CPU, at start and mid-session; `?delegate=` override
     landmarks.ts             pure: MediaPipe result → plain HandFrame, mirrored to selfie space
@@ -110,6 +116,9 @@ scripts/
   copy-mediapipe.mjs         postinstall and prebuild: copy the wasm runtime into public/
   fetch-model.mjs            downloads the hand model once (the file is then committed)
   measure-fps.mjs            render and tracking measurement in a real Chrome (fps-report.mjs: tables)
+  devtools.mjs, fps-report.mjs  Chrome + DevTools plumbing; parsing, tables and the NFR-1 bar
+vite/handWorkerPlugin.ts     builds the hand worker as a classic script (watch in dev, content-hashed in production)
+tsconfig.node.json           build tooling (Node types); the game's code never sees Node globals
 local/                       git-ignored private media (the hand-only test clip); never committed
 bench/
   gestures.bench.test.ts     recognizer benchmark (npm run bench:gestures, not part of npm test)
@@ -244,7 +253,7 @@ All `localStorage` keys are versioned: `wg.settings.v1`, `wg.calibration.v1`, `w
 
 ## Main loop
 - **Rendering:** one `requestAnimationFrame` loop drives scene update, effects, trail, HUD and debug overlay.
-- **Hand tracking:** runs per new video frame (`requestVideoFrameCallback`), on its own schedule rather than the render loop's. It loads when the camera is asked for, not on page load. On the main thread, detection still takes time from rendering: each `detectForVideo` call blocks until it is done (T4 measured 19–31 ms on this laptop with no hand in view). Whether to throttle detection while no hand is seen, or to move it to a Web Worker, is decided from T4's measurements (FR-2; `docs/LATER.md` has the worker constraint). The renderer interpolates between tracking samples.
+- **Hand tracking:** runs per new video frame (`requestVideoFrameCallback`), on its own schedule rather than the render loop's. It loads when the camera is asked for, not on page load. Detection runs in a classic Web Worker (D-064): the main thread only posts each new frame as a `VideoFrame` (0.12 ms) with its capture time, one at a time, and draws results when they arrive. If the worker can't run, detection falls back to the main thread (D-067), where each `detectForVideo` call blocks rendering (19–31 ms on this laptop). Results carry their frame's capture time, so consumers place them where the camera saw them; the trail adds the arrival lag to its render delay (T5). The renderer interpolates between tracking samples.
 - **Measuring jank honestly:** `?reportFps=1` logs both rAF-timestamp gaps and real (wall-clock) gaps between frames. rAF timestamps are aligned to vsync, so they hide a frame that ran late because a long task ran just before it; the real gap and the late-frame count show it (T4).
 - **Time:** comes from the injectable clock (`performance.now()` in the browser, fake in tests).
 

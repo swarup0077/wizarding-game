@@ -14,5 +14,7 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "bench", "*.config.ts"]
+  "include": ["src", "bench"],
+  // The hand worker has its own config (WebWorker globals); build tooling is in tsconfig.node.json.
+  "exclude": ["src/perception/worker"]
 }

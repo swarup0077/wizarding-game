@@ -4,7 +4,7 @@ Ideas and features deliberately kept out of the current phase (the scope rule in
 
 | Idea | Why it waits | Earliest phase |
 |---|---|---|
-| Web Worker for hand detection | Only needed if render fps drops below 55 (see T4's measurements). **Constraint (found in the first spec review, confirmed against tasks-vision 1.1.1 in T4):** MediaPipe's loader runs the wasm glue with `importScripts()` inside a worker, which exists only in **classic** workers, while Vite's dev server serves workers only as ES modules. In 1.1.1, a module worker's `importScripts` throws `TypeError` and the loader falls back to `import()` (or `self.import`), which can only load the `_module_` wasm variant (`FilesetResolver.forVisionTasks(path, true)`; not copied to `public/` until needed). Untested. Plan for a separately built classic worker, or test the module path first in both `npm run dev` and the build | When measured |
+| Hand detection in a module worker | **Detection runs in a classic worker since T4** (D-064, D-066). A module worker could be built like any other Vite worker: tasks-vision 1.1.1 falls back to `import()` in a module worker, which needs the `_module_` wasm variant (`forVisionTasks(path, true)`). Untested. Only worth it if the separate classic build becomes a burden | If needed |
 | Whisper speech recognition | Works in all browsers and offline, but heavy | 4 |
 | Unique comic miscast per spell | Polish after the core loop is solid | 2 |
 | Mic volume (RMS) as an optional power signal | Needs a second audio stream, an AnalyserNode and per-session normalization. Only for spells where force makes sense; never required | 2–3 |

@@ -88,6 +88,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 **Build:**
 - `scripts/copy-mediapipe.mjs` (run from `postinstall`) and `scripts/fetch-model.mjs` (run once; commit the downloaded model).
 - `perception/handTracker.ts`: GPU delegate with CPU fallback, detection via `requestVideoFrameCallback`, monotonic timestamps; emits `hand:landmarks`.
+- **Added in T4 (part 2):** detection in a classic Web Worker (`perception/worker/handWorker.ts`, built by `vite/handWorkerPlugin.ts`, content-hashed in production), with frames posted as `VideoFrame`s carrying their capture time; restart once, then main-thread fallback (D-064 to D-067).
 - Skeleton drawn in the PiP.
 - The low-fps tip.
 
@@ -111,6 +112,8 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
   - preview shown: a red frame border plus a "Hand lost" label, as an `is-hand-lost` state that every frame style in `frame.css` styles;
   - preview hidden: the status chip already reads "Camera on · hand lost" in red ink once `hand:lost` is emitted (built in the T3 follow-up; it listens to `hand:found` / `hand:lost`).
 - Debug overlay: pinch-ratio bars for both the 3D world ratio and the aspect-corrected 2D ratio, with live threshold sliders; live One Euro sliders (min cutoff, beta), the raw vs filtered dot, and current velocity.
+
+- **Trail timing for the hand (added in T4):** hand samples are stamped with their frame's **capture** time (D-064), so they reach the trail 30–90 ms after the moment they describe (measured in T4: capture → result 33–85 ms). `presentation/wandTimeline.ts` draws at `now − 1.25 × input interval` and clamps to the newest sample, so with late-arriving samples the head would sit clamped and step at the tracking rate. Make the render delay the **measured arrival lag plus** the interval margin, so there is always a next sample to interpolate toward (the mouse keeps its ~4 ms). Then measure the total delay against NFR-2 (trail under 100 ms). If the real numbers break it, report them; don't loosen the budget.
 
 **Tests:**
 - One Euro: a stationary noisy signal gets smoothed; a fast step is followed with little lag.
@@ -266,7 +269,7 @@ Each task lists what it covers, what to build, the tests, and how I check it by 
 2. Tune thresholds in `tuning.ts` based on the results, logging each change in `DECISIONS.md`.
 3. Fix anything that fails.
 4. Profile a 5-minute session: no console errors from our code, no memory growth.
-5. Before sharing the link, open the deployed build in Chrome on a Mac and run AC-15 (AC-1, AC-7, AC-9, and AC-10's camera and mic parts). Record the results.
+5. Before sharing the link, open the deployed build in Chrome on a Mac and run AC-15 (AC-1, AC-7, AC-9, and AC-10's camera and mic parts). Also compare Worker · CPU (the default) with `?delegate=gpu` there (Detection and Tracking fps rows); if the GPU wins clearly, propose a per-platform default (D-068). Record the results.
 6. Write `docs/phase-0/REPORT.md`:
    - what works;
    - the measured numbers;

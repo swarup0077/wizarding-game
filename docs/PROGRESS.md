@@ -352,3 +352,99 @@ A follow-up run with timestamps showed every long gap inside the first 2.2 s aft
    - A raw webcam picture shows your right hand on the **left**. If `hand-raw.mp4` shows it on the right, the app saved it mirrored: start the filter with `hflip,`.
    - The crop keeps the centre 4:3, so keep your hand away from the far left and right edges while recording.
 7. **Use:** `npm run build && npm run measure:fps -- --only native-tracking,retina-cap2-tracking,retina-cap2-tracking-drawing,native-tracking-cpu --clip local/clips/hand.y4m`, with the display awake.
+
+## T4 part 2: Detection in a Web Worker (2026-10-21) — paused for one decision (delegate order in the worker)
+**Done:**
+- **Vercel:** the part 1 checkpoint (`629006d`) is pushed, and Vercel serves both wasm files as `application/wasm` (13,519,922 and 12,627,509 bytes, the same as local). The model is served as `application/octet-stream`.
+- **The worker (D-064):**
+  - `perception/worker/handWorker.ts`, a classic worker with its own tsconfig;
+  - `detectors/workerBackend.ts`: VideoFrame plus a clone handle per frame, one in flight, newest-skipped catch-up, capture time echoed back;
+  - `detectors/mainThreadBackend.ts`, the fallback;
+  - `landmarkerFactory.ts`: the only MediaPipe import (lint), with the warm-up detection inside "Readying your wand…";
+  - pure modules `workerProtocol.ts`, `trackerPolicy.ts`, `trackerMetrics.ts`, plus tests.
+  - `handTracker.ts` is now the façade. Events and the `WandSource` contract are unchanged.
+  - One other perception file changed: `videoFrameLoop.ts` now passes rVFC's `captureTime`, which exists only inside that callback.
+- **Failure handling (D-067):** restart the worker once, then the main thread. Our in-flight handle is always closed. Rehearsals: `?simulateTracker=worker-crash | worker-hang | worker-crash-always | worker-missing`, all four checked.
+- **Build (D-066):** `vite/handWorkerPlugin.ts`.
+  - Dev: watch build served at `/workers/hand-worker.js`; an edit rebuilt it (checked).
+  - Production: `workers/hand-worker.bb09af3785.js`, its URL injected through `virtual:hand-worker`.
+  - Checked in `npm run dev` and `vite preview`: Worker · GPU, frames flowing, no console errors. Vercel is checked after the next push.
+  - `tsconfig.node.json` plus `@types/node` 24.x for build tooling.
+- **Debug overlay:** Delegate shows "Worker · GPU" or "Main thread · … (worker failed: …)". New rows: Start load / warm-up, First detection, Capture → result, Skeleton skew.
+- **Frame transfer chosen by data** (D-064): VideoFrame plus catch-up. The processor route is impossible in a worker in Chrome 155, except as a transferred stream on another clock.
+- **`measure-fps`:**
+  - the tracking matrix ({laptop, Retina emulation} × {worker, main} × {GPU, CPU}, all drawing continuously);
+  - `--fresh-each`, the delayed camera start, exact start-up window;
+  - PASS/FAIL for the new bar (D-065);
+  - INCOMPLETE and CAMERA STALLED flags;
+  - the Windows occlusion flag;
+  - helpers split into `devtools.mjs` and `fps-report.mjs`.
+- **Docs:**
+  - SPEC: FR-2 (worker plus fallback), NFR-1 and AC-2 (the new bar).
+  - TASKS: T4's build list, and T5's arrival-lag compensation for the trail.
+  - ARCHITECTURE, LATER (the worker row is now done; reduced-rate detection is a heat/battery option).
+- **Clip:** `local/clips/hand-limited.y4m`, re-converted from your full-range `hand.y4m` to limited range (what a webcam delivers and Chrome's Y4M reader assumes). 681 frames, 30 fps. Yours is untouched.
+
+**Numbers** (i5-1340P with Iris Xe, on AC power, Balanced power plan, Chrome 155; a **fresh profile per run**; continuous drawing in every run; 20 s steady state). "Start gap" is the longest real frame gap from Enable camera to 1 s after ready, on a first visit. Bar = the render half of NFR-1 (D-065).
+
+| Screen | Runs on | Hand | Tracking fps (camera) | Detection mean / p95 | Capture → result | Skeleton skew | Render fps | Late frames per s | Longest real gap | Start gap | Bar |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| laptop | main · GPU | no | 20.0 (20) | 21.7 / 26.9 ms | 30 ms | 0 | 59.8 | 19.9 | 45 ms | 2798 ms | FAIL |
+| laptop | main · CPU | no | 20.0 (20) | 27.3 / 32.2 ms | 36 ms | 0 | 59.2 | 20.3 | 61 ms | 321 ms | FAIL |
+| laptop | worker · GPU | no | 19.6 (20) | 27.5 / 32.7 ms | 37 ms | 0 | 60.0 | 0.0 | 24 ms | 507 ms | FAIL (start) |
+| laptop | worker · CPU | no | 19.6 (20) | 30.3 / 36.0 ms | 39 ms | 0 | 60.0 | 0.0 | 18 ms | 33 ms | PASS |
+| Retina | main · GPU | no | 20.0 (20) | 19.5 / 25.4 ms | 26 ms | 0 | 59.9 | 20.3 | 60 ms | 2932 ms | FAIL |
+| Retina | main · CPU | no | 20.1 (20) | 30.9 / 45.6 ms | 38 ms | 0 | 53.2 | 20.3 | 57 ms | 226 ms | FAIL |
+| Retina | worker · GPU | no | 19.5 (20) | 25.1 / 35.0 ms | 34 ms | 0 | 60.0 | 0.0 | 23 ms | 476 ms | FAIL (start) |
+| Retina | worker · CPU | no | 19.4 (20) | 36.3 / 44.9 ms | 44 ms | 5 ms | 60.0 | 0.0 | 21 ms | 29 ms | PASS |
+| laptop | main · GPU | yes | 30.0 (30) | 25.2 / 37.5 ms | 38 ms | 0 | 46.1 | 25.3 | 65 ms | 2832 ms | FAIL |
+| laptop | main · CPU | yes | 29.6 (30) | 29.2 / 48.6 ms | 41 ms | 0 | 40.1 | 23.9 | 76 ms | 282 ms | FAIL |
+| laptop | worker · GPU | yes | **15.4** (30) | **62.5 / 100 ms** | 80 ms | 63 ms | 60.0 | 0.0 | 28 ms | 522 ms | FAIL (start) |
+| laptop | worker · CPU | yes | **19.2** (30) | 50.5 / 70.5 ms | 77 ms | 51 ms | 60.0 | 0.0 | 24 ms | 37 ms | PASS |
+| Retina | main · GPU | yes | 29.6 (30) | 28.9 / 40.9 ms | 42 ms | 0 | 41.0 | 25.5 | 67 ms | 2753 ms | FAIL |
+| Retina | main · CPU | yes | 29.4 (30) | 30.8 / 49.4 ms | 42 ms | 0 | 36.2 | 29.9 | 67 ms | 253 ms | FAIL |
+| Retina | worker · GPU | yes | **15.4** (30) | **62.4 / 99.8 ms** | 84 ms | 63 ms | 60.0 | 0.1 | 38 ms | 704 ms | FAIL (start) |
+| Retina | worker · CPU | yes | 28.5 (30) | 34.2 / 54.2 ms | 61 ms | 34 ms | 60.0 | 0.0 | 18 ms | 24 ms | PASS |
+
+"No hand" = Chrome's built-in fake camera (20 fps); "yes" = the hand clip (30 fps; a hand is seen in 75–96% of frames).
+
+**The 60 s bar runs** (the clip, drawing, a fresh profile):
+
+| Run | Tracking fps | Detection mean / p95 | Late frames per s (worst s) | Longest real gap | Start gap | Render bar | Tracking ≥ 25 |
+|---|---|---|---|---|---|---|---|
+| laptop · worker · CPU | 19.0 | 50.6 / 70.9 ms | 0.1 (3) | 27.8 ms | 39 ms | PASS | FAIL |
+| Retina · worker · CPU | 28.3 | 34.4 / 55.6 ms | 0.0 (0) | 19.6 ms | 22 ms | PASS | PASS |
+| laptop · worker · GPU | 15.4 | 62.4 / 100 ms | 0.0 (3) | 33.9 ms | 514 ms | FAIL (start) | FAIL |
+| Retina · worker · GPU | 15.4 | 62.7 / 100 ms | 0.1 (5) | 33.1 ms | 522 ms | FAIL (start) | FAIL |
+
+**What the numbers say:**
+1. **The worker removes the stutter.** Late frames fall from 20–30 per second (one per detection; render 36–46 fps with a hand) to 0.0–0.1. On the main thread, the first-visit GPU warm-up froze the page for 2.8–2.9 s.
+2. **The worker's GPU delegate is the wrong default here.**
+   - With a hand, it detects in 62 ms (100 ms p95) against 25–29 ms on the main thread: tracking 15 fps.
+   - Its warm-up (2.9–3.1 s, a shader compile in Chrome's GPU process, which also composites the page) still makes a 0.5–0.7 s visible stall on a first visit. The main thread itself stays free; the GPU process doesn't.
+   - The input type isn't the cause: an ImageBitmap gave the same numbers.
+3. **The worker's CPU delegate passes the render bar everywhere**, with no first-load stall: there is no GPU compile. Its detection takes 34 or 50 ms, depending on start-up, steady across two loops of the clip and unrelated to hand content.
+   - The 50 ms state happens when the camera starts 2.5 s after load (reproduced 4 times; 34 ms when it starts at once).
+   - My best explanation, **unproven**: on this hybrid CPU (4 performance plus 8 efficiency cores), Windows sometimes places the worker thread on an efficiency core.
+   - In that state tracking is 19 fps, below the NFR-1 floor of 25.
+4. **Skeleton skew** (how far the live picture is ahead of the skeleton) is 34–63 ms in the worker: **more than one camera frame (33 ms)**, your revisit trigger. On the main thread it is 0.
+5. **Capture → result** is 61–84 ms with a hand in the worker, against 38–42 ms on the main thread. This is the input to T5's trail-delay compensation and NFR-2's 100 ms budget.
+
+**Screenshots** (the clip, in the scratchpad):
+- `t4-skeleton-minimal-debug.png`: the skeleton, the debug rows, and the low-fps ink note, which fired correctly at 13–15 fps.
+- `t4-portrait-8.png`: the skeleton in the gilded portrait.
+- From headless Chrome: `t4-readying.png` (the readying chip above the preview) and `t4-debug-headless.png`.
+
+**Console lines (AC-12):**
+- MediaPipe's lines are as listed in part 1, now marked `(worker info/warning/error)`.
+- `INFO: Created TensorFlow Lite XNNPACK delegate for CPU.` comes through console.error.
+- Still the pre-existing `/favicon.ico` 404.
+- No errors from our code in any measured run.
+- One "VideoFrame was garbage collected without being closed" appears only in the worker-hang rehearsal (D-067).
+
+**Tests:** 42 files, 273 tests (~1.3 s); typecheck (3 configs), lint and build pass.
+
+**Decisions after these numbers:**
+1. **The worker tries the CPU first; the main thread keeps the GPU first** (D-068). The default is now "Worker · CPU". AC-15 compares the two delegates on the Mac.
+2. **The 50 ms CPU-worker case** gets a time-boxed check: the Windows power mode, and sending smaller frames (T4 part 3).
+3. **The skeleton skew** (over one camera frame) is fixed with a synchronized preview (T4 part 3).

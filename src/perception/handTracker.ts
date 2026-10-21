@@ -1,25 +1,31 @@
-import type { HandLandmarker } from '@mediapipe/tasks-vision';
-import { DEBUG, TRACKING } from '../config/tuning';
+import { TRACKING } from '../config/tuning';
 import type { Clock } from '../core/clock';
 import type { EventBus } from '../core/eventBus';
 import type { EventMap } from '../core/events';
-import { createFpsMeter } from '../core/fpsMeter';
-import { createRollingStats } from '../core/rollingStats';
 import type { TrackerDelegate, TrackerFailureKind } from '../core/types';
-import { createWithFallback, errorText, nextDelegate } from './delegateFallback';
-import { createDetectScheduler } from './detectScheduler';
-import { type HandFrame, toHandFrame } from './landmarks';
+import { type DelegateOrders, errorText } from './delegateFallback';
+import type {
+  BackendEvents,
+  BackendReady,
+  DetectionBackend,
+  DetectionThread,
+} from './detectors/backend';
+import { createMainThreadBackend } from './detectors/mainThreadBackend';
+import { createWorkerBackend } from './detectors/workerBackend';
+import type { HandFrame } from './landmarks';
 import { createSlowTrackingWatch } from './slowTrackingWatch';
+import { createTrackerMetrics, type MetricsSnapshot } from './trackerMetrics';
+import { stepAfterFailure, type TrackerSimulation, workerFailureFor } from './trackerPolicy';
 import { watchVideoFrames } from './videoFrameLoop';
 
-// MediaPipe HandLandmarker (FR-2): the only file that touches MediaPipe (lint enforces it).
-// Thin on purpose: when to detect, which delegate, how slow is too slow and how results
-// become plain data are all pure modules next to this one. If detection ever moves to a
-// Web Worker, this file is what changes (docs/LATER.md).
+// Hand tracking (FR-2): the one module other layers know. Detection runs in the hand worker
+// (T4, D-064), or on the main thread if the worker can't; this file only chooses and
+// supervises, and turns results into `hand:landmarks` and the tracker events.
 //
 // Lifecycle: loading starts when the camera is asked for (`camera:status` starting), so the
-// download overlaps the permission prompt and mouse-only players never fetch it. Detection
-// runs while the camera is live, once per new video frame, on the shared <video> element.
+// download overlaps the permission prompt and mouse-only players never fetch it. Frames are
+// watched while the camera is live and sent to the backend once it is ready.
+// Failure order: worker → the worker restarted once → main thread → give up (trackerPolicy).
 
 /** What the tracker needs. */
 export interface HandTrackerOptions {
@@ -29,27 +35,32 @@ export interface HandTrackerOptions {
   clock: Clock;
   /** Where `public/` is served from: Vite's BASE_URL. */
   assetBase: string;
-  /** Delegates to try, in order (normally GPU then CPU; `?delegate=` forces one). */
-  delegates: readonly TrackerDelegate[];
+  /** Delegates to try per thread, in order (worker CPU first, main thread GPU first; D-068). */
+  delegates: DelegateOrders;
+  /** The built hand worker; null runs detection on the main thread (`?detector=main`). */
+  workerUrl: string | null;
+  /** Dev: a failure to rehearse (`?simulateTracker=`). */
+  simulate: TrackerSimulation | null;
 }
 
 /** Live numbers for the debug overlay and the fps reporter. */
-export interface TrackerStats {
+export interface TrackerStats extends MetricsSnapshot {
   state: 'idle' | 'loading' | 'ready' | 'failed';
+  thread: DetectionThread | null;
   delegate: TrackerDelegate | null;
   /** Why the GPU isn't in use, when it isn't. */
   gpuError: string | null;
+  /** Why detection left the worker (or what the worker recovered from). */
+  workerError: string | null;
+  workerRestarts: number;
   /** Why tracking failed, when it did. */
   failure: string | null;
-  /** Detections completed per second. */
-  trackingFps: number;
-  /** New video frames per second (the camera's real rate). */
-  videoFps: number;
-  /** Main-thread time per detection, after warm-up. */
-  detectMeanMs: number;
-  detectP95Ms: number;
-  /** The first detection (shader compile, cold caches), reported apart. */
-  firstDetectMs: number | null;
+  /** Starting the active backend: loading, and the warm-up detection. */
+  loadMs: number | null;
+  warmupMs: number | null;
+  /** When the tracker last started loading, and last became ready (clock ms; for measuring start-up). */
+  loadingAt: number | null;
+  readyAt: number | null;
   /** Whether the last analysed frame had a hand. */
   handSeen: boolean;
 }
@@ -61,16 +72,11 @@ export interface HandTracker {
   stats: () => TrackerStats;
 }
 
-type CreateLandmarker = (delegate: TrackerDelegate) => Promise<HandLandmarker>;
-
 /** Creates the tracker. It waits for the camera before loading anything. */
 export function createHandTracker(options: HandTrackerOptions): HandTracker {
-  const { bus, video, clock, assetBase, delegates } = options;
+  const { bus, video, clock, assetBase, delegates, workerUrl, simulate } = options;
   const listeners: ((frame: HandFrame | null) => void)[] = [];
-  const scheduler = createDetectScheduler();
-  const detectMs = createRollingStats(TRACKING.detectStatsWindow);
-  const trackingMeter = createFpsMeter(DEBUG.fpsWindowMs);
-  const videoMeter = createFpsMeter(DEBUG.fpsWindowMs);
+  const metrics = createTrackerMetrics();
   const slowWatch = createSlowTrackingWatch({
     thresholdFps: TRACKING.lowFpsThreshold,
     enterMs: TRACKING.lowFpsWindowMs,
@@ -79,151 +85,145 @@ export function createHandTracker(options: HandTrackerOptions): HandTracker {
   });
 
   let state: TrackerStats['state'] = 'idle';
-  let landmarker: HandLandmarker | null = null;
-  let createLandmarker: CreateLandmarker | null = null;
-  let delegate: TrackerDelegate | null = null;
-  let gpuError: string | null = null;
+  let backend: DetectionBackend | null = null;
+  /** Events from a backend that has been replaced are ignored. */
+  let generation = 0;
+  let ready: BackendReady | null = null;
+  let workerError: string | null = null;
+  let restarts = 0;
   let failure: string | null = null;
   let loading: Promise<void> | null = null;
   let cameraLive = false;
   let stopFrames: (() => void) | null = null;
   let slowTimer: ReturnType<typeof setInterval> | null = null;
-  let detections = 0;
-  let firstDetectMs: number | null = null;
   let handSeen = false;
+  let loadingAt: number | null = null;
+  let readyAt: number | null = null;
 
-  function ready(): void {
+  const tracking = (): boolean => cameraLive && state === 'ready';
+
+  function setReady(next: BackendReady): void {
+    ready = next;
     state = 'ready';
-    const status: EventMap['tracker:status'] = { state, t: clock.now() };
-    if (delegate) status.delegate = delegate;
-    if (gpuError) status.gpuError = gpuError;
+    readyAt = clock.now();
+    metrics.reset();
+    const status: EventMap['tracker:status'] = { state, delegate: next.delegate, t: clock.now() };
+    if (next.gpuError) status.gpuError = next.gpuError;
     bus.emit('tracker:status', status);
-    startDetecting();
+    if (tracking() && !document.hidden) slowWatch.restart(clock.now());
   }
 
   function fail(kind: TrackerFailureKind, detail: string): void {
     state = 'failed';
     failure = detail;
-    stopDetecting();
+    slowWatch.pause();
     bus.emit('tracker:status', { state, failure: kind, detail, t: clock.now() });
   }
 
-  async function load(): Promise<void> {
+  function makeBackend(thread: DetectionThread): DetectionBackend {
+    const mine = ++generation;
+    const events: BackendEvents = {
+      onResult: (hand, captureTime, ms) => {
+        if (mine === generation) onResult(hand, captureTime, ms);
+      },
+      onDelegate: (next) => {
+        if (mine === generation) setReady(next);
+      },
+      onFailure: (detail) => {
+        if (mine === generation) void recover(thread, detail, true);
+      },
+    };
+    if (thread === 'main' || !workerUrl)
+      return createMainThreadBackend({ video, assetBase, delegates: delegates.main, events });
+    return createWorkerBackend({
+      url: simulate === 'worker-missing' ? `${workerUrl}.missing` : workerUrl,
+      video,
+      assetBase,
+      delegates: delegates.worker,
+      events,
+      simulate: workerFailureFor(simulate, restarts),
+    });
+  }
+
+  async function startOn(thread: DetectionThread): Promise<void> {
     state = 'loading';
+    ready = null;
+    loadingAt = clock.now();
+    slowWatch.pause();
     bus.emit('tracker:status', { state, t: clock.now() });
-    if (typeof WebAssembly === 'undefined') {
-      fail('unsupported', 'This browser has no WebAssembly.');
-      return;
-    }
+    const next = makeBackend(thread);
+    backend = next;
     try {
-      const vision = await import('@mediapipe/tasks-vision');
-      const fileset = await vision.FilesetResolver.forVisionTasks(`${assetBase}mediapipe/wasm`);
-      createLandmarker = (d) =>
-        vision.HandLandmarker.createFromOptions(fileset, {
-          baseOptions: { modelAssetPath: `${assetBase}models/hand_landmarker.task`, delegate: d },
-          runningMode: 'VIDEO',
-          numHands: TRACKING.numHands,
-        });
-      const choice = await createWithFallback(delegates, createLandmarker);
-      landmarker = choice.value;
-      delegate = choice.delegate;
-      gpuError = choice.failed.find((f) => f.delegate === 'GPU')?.error ?? null;
-      ready();
+      setReady(await next.start());
     } catch (error) {
-      fail('load-failed', errorText(error));
+      if (backend === next) await recover(thread, errorText(error), false);
     }
   }
 
-  /** The active delegate failed mid-session: close it and start the next one, once. */
-  async function fallBack(error: unknown): Promise<void> {
-    const next = delegate ? nextDelegate(delegates, delegate) : null;
-    landmarker?.close();
-    landmarker = null;
-    if (!next || !createLandmarker) {
-      scheduler.finish();
-      fail('load-failed', errorText(error));
-      return;
-    }
-    if (delegate === 'GPU') gpuError = errorText(error);
-    try {
-      landmarker = await createLandmarker(next);
-      delegate = next;
-      // Start the numbers over, so the overlay never mixes two delegates' timings.
-      detectMs.clear();
-      detections = 0;
-      ready();
-    } catch (second) {
-      fail('load-failed', errorText(second));
-    } finally {
-      // The scheduler stayed busy while the landmarker was replaced, so no frame tried to use it.
-      scheduler.finish();
-    }
+  /** The backend on `thread` failed, while running (`midSession`) or while starting. */
+  async function recover(
+    thread: DetectionThread,
+    detail: string,
+    midSession: boolean,
+  ): Promise<void> {
+    backend?.dispose();
+    backend = null;
+    generation++;
+    if (thread === 'worker') workerError = detail;
+    const step = stepAfterFailure(thread, restarts, TRACKING.workerRestarts, midSession);
+    if (step === 'restart-worker') {
+      restarts++;
+      await startOn('worker');
+    } else if (step === 'main-thread') await startOn('main');
+    else fail(typeof WebAssembly === 'undefined' ? 'unsupported' : 'load-failed', detail);
   }
 
-  function onVideoFrame(frameId: number): void {
-    const now = clock.now();
-    videoMeter.tick(now);
-    if (!landmarker || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
-    const timestamp = scheduler.begin(frameId, now);
-    if (timestamp === null) return;
-    let result: ReturnType<HandLandmarker['detectForVideo']>;
-    try {
-      result = landmarker.detectForVideo(video, timestamp);
-    } catch (error) {
-      void fallBack(error); // finishes the scheduler when done
-      return;
-    }
-    const end = clock.now();
-    scheduler.finish();
-    recordDetection(end - now, end);
-    const frame = toHandFrame(result, timestamp);
-    handSeen = frame !== null;
-    bus.emit('hand:landmarks', { points: frame?.points ?? [], t: timestamp });
-    for (const listener of listeners) listener(frame);
+  function onResult(hand: HandFrame | null, captureTime: number, ms: number): void {
+    metrics.result(clock.now(), captureTime, ms);
+    handSeen = hand !== null;
+    bus.emit('hand:landmarks', { points: hand?.points ?? [], t: captureTime });
+    for (const listener of listeners) listener(hand);
   }
 
-  function recordDetection(ms: number, end: number): void {
-    detections++;
-    trackingMeter.tick(end);
-    if (detections === 1) firstDetectMs = ms;
-    if (detections > TRACKING.warmupDetections) detectMs.add(ms);
+  function onVideoFrame(frameId: number, captureTime: number): void {
+    metrics.videoFrame(clock.now(), captureTime);
+    if (state === 'ready') backend?.frame(frameId, captureTime);
   }
 
   function checkSlow(): void {
+    if (!tracking()) return;
     const now = clock.now();
-    const fps = trackingMeter.read(now);
+    const fps = metrics.trackingFps(now);
     const change = slowWatch.update(fps, now);
     if (change) bus.emit('tracker:slow', { slow: change === 'slow', fps, t: now });
   }
 
-  function startDetecting(): void {
-    if (!cameraLive || !landmarker || stopFrames) return;
-    scheduler.resetFrames();
-    stopFrames = watchVideoFrames(video, onVideoFrame);
-    if (!document.hidden) slowWatch.restart(clock.now());
-    slowTimer = setInterval(checkSlow, TRACKING.lowFpsCheckMs);
-  }
-
-  function stopDetecting(): void {
-    stopFrames?.();
-    stopFrames = null;
-    if (slowTimer) clearInterval(slowTimer);
-    slowTimer = null;
-    slowWatch.pause();
-    handSeen = false;
+  function watchFrames(on: boolean): void {
+    if (on && !stopFrames) {
+      stopFrames = watchVideoFrames(video, onVideoFrame);
+      slowTimer = setInterval(checkSlow, TRACKING.lowFpsCheckMs);
+      if (tracking() && !document.hidden) slowWatch.restart(clock.now());
+    } else if (!on && stopFrames) {
+      stopFrames();
+      stopFrames = null;
+      if (slowTimer) clearInterval(slowTimer);
+      slowTimer = null;
+      slowWatch.pause();
+      handSeen = false;
+    }
   }
 
   bus.on('camera:status', ({ state: camera }) => {
-    if (camera === 'starting' || camera === 'live') loading ??= load();
+    if (camera === 'starting' || camera === 'live')
+      loading ??= startOn(workerUrl ? 'worker' : 'main');
     cameraLive = camera === 'live';
-    if (cameraLive) startDetecting();
-    else stopDetecting();
+    watchFrames(cameraLive);
   });
 
   // A hidden tab gets no video frames, so fps falls for reasons a tip can't fix.
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) slowWatch.pause();
-    else if (stopFrames) slowWatch.restart(clock.now());
+    else if (tracking()) slowWatch.restart(clock.now());
   });
 
   return {
@@ -232,16 +232,23 @@ export function createHandTracker(options: HandTrackerOptions): HandTracker {
     },
     stats() {
       const now = clock.now();
+      const numbers = metrics.read(now);
       return {
+        ...numbers,
+        // A stopped camera reads 0, not the last rate the meters saw.
+        trackingFps: stopFrames ? numbers.trackingFps : 0,
+        videoFps: stopFrames ? numbers.videoFps : 0,
         state,
-        delegate,
-        gpuError,
+        thread: backend?.thread ?? null,
+        delegate: ready?.delegate ?? null,
+        gpuError: ready?.gpuError ?? null,
+        workerError,
+        workerRestarts: restarts,
         failure,
-        trackingFps: stopFrames ? trackingMeter.read(now) : 0,
-        videoFps: stopFrames ? videoMeter.read(now) : 0,
-        detectMeanMs: detectMs.mean(),
-        detectP95Ms: detectMs.p95(),
-        firstDetectMs,
+        loadMs: ready?.loadMs ?? null,
+        warmupMs: ready?.warmupMs ?? null,
+        loadingAt,
+        readyAt,
         handSeen,
       };
     },

@@ -24,16 +24,31 @@ export class DelegatesFailedError extends Error {
   }
 }
 
-/** The normal order: the GPU is much faster on most machines, the CPU always exists. */
+/** The main thread's order: there the GPU is faster, and the CPU always exists. */
 export const DELEGATE_ORDER: readonly TrackerDelegate[] = ['GPU', 'CPU'];
 
 /**
- * The delegate order for this session: `?delegate=cpu` (or `gpu`) forces one delegate, for
- * measuring the fallback path; anything else gives the normal order.
+ * The hand worker's order (D-068): CPU first. Measured in T4 on Iris Xe, the GPU delegate in a
+ * worker detected a hand in 62 ms (against 25–29 ms on the main thread) and its first-visit
+ * shader compile still stalled the screen for 0.5–0.7 s; the CPU delegate detected in 34–50 ms
+ * with no stall. Re-checked on the reviewer's Mac (AC-15).
  */
-export function delegateOrderFromQuery(search: string): readonly TrackerDelegate[] {
+export const WORKER_DELEGATE_ORDER: readonly TrackerDelegate[] = ['CPU', 'GPU'];
+
+/** Delegate orders per detection thread. */
+export interface DelegateOrders {
+  worker: readonly TrackerDelegate[];
+  main: readonly TrackerDelegate[];
+}
+
+/**
+ * The delegate orders for this session: `?delegate=cpu` (or `gpu`) forces one delegate on both
+ * threads, for measuring; anything else gives each thread its normal order.
+ */
+export function delegateOrdersFromQuery(search: string): DelegateOrders {
   const forced = new URLSearchParams(search).get('delegate')?.toUpperCase();
-  return forced === 'CPU' || forced === 'GPU' ? [forced] : DELEGATE_ORDER;
+  if (forced === 'CPU' || forced === 'GPU') return { worker: [forced], main: [forced] };
+  return { worker: WORKER_DELEGATE_ORDER, main: DELEGATE_ORDER };
 }
 
 /** A readable reason from anything thrown. */

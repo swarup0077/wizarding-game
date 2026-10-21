@@ -10,8 +10,9 @@ import { createBrowserCamera } from './input/camera';
 import { createCameraController } from './input/cameraController';
 import { startKeyboardActions } from './input/keyboardActions';
 import { createMouseWandSource, type HandRatePreview } from './input/mouseWandSource';
-import { delegateOrderFromQuery } from './perception/delegateFallback';
+import { delegateOrdersFromQuery } from './perception/delegateFallback';
 import { createHandTracker } from './perception/handTracker';
+import { detectorFromQuery, trackerSimulationFromQuery } from './perception/trackerPolicy';
 import { parseDprCapOverride } from './presentation/canvasSize';
 import { createCanvasStage, type CanvasStage } from './presentation/canvasStage';
 import { mountHud } from './presentation/hud/mountHud';
@@ -22,6 +23,7 @@ import { createPracticeStage } from './scenes/practiceStage';
 import { browserStore, type Settings } from './settings/settings';
 import { connectSettingsActions, createSettingsStore } from './settings/settingsStore';
 import { ensureUiFilters } from './ui';
+import { HAND_WORKER_URL } from 'virtual:hand-worker';
 
 /** What the running game is built from. Later tasks add sources and recognition. */
 export interface App {
@@ -93,14 +95,18 @@ export async function bootstrap(): Promise<App> {
     settings: settingsStore.get(),
     now: () => systemClock.now(),
   });
-  // Hand tracking (T4) reads the same <video> the preview shows. It loads when the camera is
-  // asked for; `?delegate=cpu` forces the CPU, to measure the fallback path.
+  // Hand tracking (T4) reads the same <video> the preview shows, and detects in the hand
+  // worker. It loads when the camera is asked for. Dev overrides, for measuring and
+  // rehearsing failures: `?delegate=cpu|gpu`, `?detector=main`, `?simulateTracker=<failure>`.
+  const search = window.location.search;
   const tracker = createHandTracker({
     bus,
     video: camera.video,
     clock: systemClock,
     assetBase: import.meta.env.BASE_URL,
-    delegates: delegateOrderFromQuery(window.location.search),
+    delegates: delegateOrdersFromQuery(search),
+    workerUrl: detectorFromQuery(search) === 'main' ? null : HAND_WORKER_URL,
+    simulate: trackerSimulationFromQuery(search),
   });
   // The UI gallery shows the camera card itself; the live one would cover it.
   if (params.get('dev') !== 'ui')

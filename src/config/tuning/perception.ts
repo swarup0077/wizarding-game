@@ -19,6 +19,17 @@ export const TRACKING = {
   detectStatsWindow: 120,
   /** The first detections compile GPU shaders and warm caches: reported apart, not averaged. */
   warmupDetections: 3,
+  /** Size of the blank frame the landmarker warms up on before it reports ready (the camera's ideal size). */
+  warmupWidthPx: 640,
+  warmupHeightPx: 480,
+  /** T4 worker: give up on a starting worker after this long (fresh profile: download + ~3 s GPU warm-up)... */
+  workerReadyTimeoutMs: 30_000,
+  /** ...or on a running one whose result is this late (crash or hang). */
+  workerResultTimeoutMs: 2000,
+  /** A failed worker is restarted this many times before detection falls back to the main thread. */
+  workerRestarts: 1,
+  /** Dev (`?simulateTracker=`): how long after the worker is ready it fails on purpose. */
+  simulateFailureAfterMs: 4000,
   /** Comfortable hand distance from the camera, quoted in the tip. */
   handDistanceCmMin: 40,
   handDistanceCmMax: 80,

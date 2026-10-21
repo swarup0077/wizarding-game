@@ -1,0 +1,20 @@
+{
+  // Build tooling that runs in Node (vite.config.ts, the hand worker plugin). The browser code
+  // has its own config (tsconfig.json), so Node's globals never leak into the game.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true
+  },
+  "include": ["vite", "vite.config.ts", "vitest.bench.config.ts"]
+}

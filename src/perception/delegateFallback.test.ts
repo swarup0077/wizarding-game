@@ -4,7 +4,7 @@ import {
   createWithFallback,
   DELEGATE_ORDER,
   DelegatesFailedError,
-  delegateOrderFromQuery,
+  delegateOrdersFromQuery,
   errorText,
   nextDelegate,
 } from './delegateFallback';
@@ -60,12 +60,21 @@ describe('nextDelegate', () => {
   });
 });
 
-describe('delegateOrderFromQuery', () => {
-  it('forces one delegate with ?delegate=, otherwise GPU then CPU', () => {
-    expect(delegateOrderFromQuery('?delegate=cpu')).toEqual(['CPU']);
-    expect(delegateOrderFromQuery('?dprCap=2&delegate=GPU')).toEqual(['GPU']);
-    expect(delegateOrderFromQuery('')).toEqual(['GPU', 'CPU']);
-    expect(delegateOrderFromQuery('?delegate=tpu')).toEqual(['GPU', 'CPU']);
+describe('delegateOrdersFromQuery', () => {
+  it('the worker tries the CPU first; the main thread the GPU first (D-068)', () => {
+    expect(delegateOrdersFromQuery('')).toEqual({ worker: ['CPU', 'GPU'], main: ['GPU', 'CPU'] });
+    expect(delegateOrdersFromQuery('?delegate=tpu')).toEqual({
+      worker: ['CPU', 'GPU'],
+      main: ['GPU', 'CPU'],
+    });
+  });
+
+  it('?delegate= forces one delegate on both threads', () => {
+    expect(delegateOrdersFromQuery('?delegate=cpu')).toEqual({ worker: ['CPU'], main: ['CPU'] });
+    expect(delegateOrdersFromQuery('?dprCap=2&delegate=GPU')).toEqual({
+      worker: ['GPU'],
+      main: ['GPU'],
+    });
   });
 });
 

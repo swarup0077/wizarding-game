@@ -2,23 +2,30 @@
 // camera's schedule, not the render loop's). Browser-only and thin.
 //
 // `requestVideoFrameCallback` fires when a new frame reaches the compositor, with a count of
-// presented frames that serves as the frame's id. Where it's missing, a rAF loop polls the
-// video's own frame count instead; the detect scheduler then drops the repeats.
+// presented frames that serves as the frame's id, and the time the camera captured it
+// (`captureTime`, on the page's performance.now clock). Results are stamped with that capture
+// time rather than their arrival time, so the trail and skeleton line up with what the camera
+// saw (T4). Where rVFC or its capture time is missing, the best stand-in is used: the
+// expected display time, or now. A rAF loop polls the video's own frame count when rVFC is
+// missing entirely; the detect scheduler then drops the repeats.
 
-/** Starts watching `video`; `onFrame` gets each new frame's id. Returns a stop function. */
+/** Starts watching `video`; `onFrame` gets each new frame's id and capture time (ms). Returns a stop function. */
 export function watchVideoFrames(
   video: HTMLVideoElement,
-  onFrame: (frameId: number) => void,
+  onFrame: (frameId: number, captureTime: number) => void,
 ): () => void {
   let stopped = false;
 
   if (typeof video.requestVideoFrameCallback === 'function') {
     let handle = 0;
-    const tick: VideoFrameRequestCallback = (_now, metadata) => {
+    const tick: VideoFrameRequestCallback = (now, metadata) => {
       if (stopped) return;
       // Ask for the next frame first, so a throwing listener can't end the loop.
       handle = video.requestVideoFrameCallback(tick);
-      onFrame(metadata.presentedFrames);
+      onFrame(
+        metadata.presentedFrames,
+        metadata.captureTime ?? metadata.expectedDisplayTime ?? now,
+      );
     };
     handle = video.requestVideoFrameCallback(tick);
     return () => {
@@ -28,11 +35,11 @@ export function watchVideoFrames(
   }
 
   let raf = 0;
-  const poll = (): void => {
+  const poll = (now: number): void => {
     if (stopped) return;
     raf = requestAnimationFrame(poll);
     const id = frameCount(video);
-    if (id !== null) onFrame(id);
+    if (id !== null) onFrame(id, now);
   };
   raf = requestAnimationFrame(poll);
   return () => {

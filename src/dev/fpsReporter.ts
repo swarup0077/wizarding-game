@@ -17,7 +17,10 @@ const REPORT_EVERY_MS = 1000;
  * DEBUG.lateFrameMs after the previous one) use the real time each callback ran, so they show
  * that stutter.
  * With a hand tracker it also logs
- * `[track] state ready delegate GPU fps 29.8 videoFps 30.0 detectMean 12.3 detectP95 15.1 firstMs 340 hand 1 at 12345`.
+ * `[track] state ready thread worker delegate GPU fps 29.8 videoFps 30.0 detectMean 12.3 detectP95 15.1
+ * firstMs 34 warmMs 3100 latency 48 skew 33 hand 1 since 2500 ready 6100 at 12345` (latency: capture →
+ * result; skew: how far
+ * the picture is ahead of the skeleton).
  */
 export function createFpsReporter(
   frameWorkMs: () => number,
@@ -62,9 +65,12 @@ export function createFpsReporter(
 
 function trackLine(s: TrackerStats, t: number): string {
   return (
-    `[track] state ${s.state} delegate ${s.delegate ?? '-'} fps ${s.trackingFps.toFixed(1)} ` +
-    `videoFps ${s.videoFps.toFixed(1)} detectMean ${s.detectMeanMs.toFixed(2)} ` +
-    `detectP95 ${s.detectP95Ms.toFixed(2)} firstMs ${s.firstDetectMs?.toFixed(0) ?? '-'} ` +
-    `hand ${s.handSeen ? 1 : 0} at ${t.toFixed(0)}`
+    `[track] state ${s.state} thread ${s.thread ?? '-'} delegate ${s.delegate ?? '-'} ` +
+    `fps ${s.trackingFps.toFixed(1)} videoFps ${s.videoFps.toFixed(1)} ` +
+    `detectMean ${s.detectMeanMs.toFixed(2)} detectP95 ${s.detectP95Ms.toFixed(2)} ` +
+    `firstMs ${s.firstDetectMs?.toFixed(0) ?? '-'} warmMs ${s.warmupMs?.toFixed(0) ?? '-'} ` +
+    `latency ${s.latencyMs.toFixed(1)} skew ${s.skewMs.toFixed(1)} ` +
+    `hand ${s.handSeen ? 1 : 0} since ${s.loadingAt?.toFixed(0) ?? '-'} ` +
+    `ready ${s.readyAt?.toFixed(0) ?? '-'} at ${t.toFixed(0)}`
   );
 }

@@ -1,0 +1,10 @@
+{
+  // The hand worker runs in a DedicatedWorkerGlobalScope: worker globals, no DOM (T4).
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "WebWorker"],
+    "types": []
+  },
+  "include": ["handWorker.ts"],
+  "exclude": []
+}

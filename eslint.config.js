@@ -13,7 +13,7 @@ const tuningIndexOnly = {
 // changes one file. Static imports only: ESLint's rule doesn't see dynamic `import()`.
 const mediapipeOnlyInTracker = {
   group: ['@mediapipe/*'],
-  message: 'Only src/perception/handTracker.ts may use MediaPipe (T4).',
+  message: 'Only src/perception/landmarkerFactory.ts may use MediaPipe (T4).',
 };
 
 // Layer boundaries from CLAUDE.md, enforced here so they can't drift.
@@ -57,6 +57,17 @@ export default tseslint.config(
           },
         },
       ],
+    },
+  },
+  {
+    // Build tooling runs in Node: its own tsconfig, so Node's globals never reach the game.
+    files: ['vite/**/*.ts', 'vite.config.ts', 'vitest.bench.config.ts'],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+        project: ['./tsconfig.node.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
   },
   {
@@ -129,7 +140,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/perception/handTracker.ts'],
+    files: ['src/perception/landmarkerFactory.ts'],
     rules: {
       'no-restricted-imports': [
         'error',

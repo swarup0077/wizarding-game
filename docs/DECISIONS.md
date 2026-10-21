@@ -392,3 +392,94 @@ Each entry: the decision, the alternatives, and why. Add new ones at the bottom 
   - Chrome aligns rAF timestamps to vsync. A frame whose callback ran 20–30 ms late, because a hand detection ran just before it in the same rendering step, still shows a 16.7 ms timestamp gap.
   - In T4's first runs the old metric read 60 fps and a 17.5 ms longest gap, while real gaps reached 47–57 ms about 20 times a second: one per detection.
   - Measured on the idle stage, the two metrics agree (18 ms), so earlier tables stay valid.
+
+## D-064: Hand detection runs in a Web Worker; frames go as VideoFrames with their capture time (T4 part 2)
+- **Decision:**
+  - Detection runs in a classic dedicated worker. `handTracker.ts` stays the only module other layers know, and the events are unchanged. It drives one of two backends behind one interface:
+    - `detectors/workerBackend.ts` (main side) plus `worker/handWorker.ts`;
+    - `detectors/mainThreadBackend.ts`, the fallback.
+  - MediaPipe is imported only by `landmarkerFactory.ts`, which both backends share. Lint enforces it.
+  - **Frame transfer:**
+    - Per new camera frame (rVFC), the main thread makes `new VideoFrame(video)`, keeps a `clone()` handle and transfers the frame. That costs 0.12 ms mean / 0.30 ms p95 on the main thread.
+    - One frame is in flight at most. Frames that arrive while the worker is busy are skipped: no VideoFrame is made.
+    - The newest skipped frame is sent the moment the result arrives (catch-up).
+  - **Timing:** each frame carries its rVFC `captureTime` (main-thread clock). The worker echoes it back, and MediaPipe's timestamp, `HandFrame.t` and `hand:landmarks.t` all use it. The worker never touches a clock, so the two threads' time origins never mix.
+  - **Warm-up:** the landmarker runs one detection on a blank frame before reporting ready. The first-use cost then falls inside "Readying your wand…", and a GPU that creates fine but fails its first detection falls back to the CPU at start.
+- **Alternatives (measured in a scratch harness: Chrome 155, Iris Xe, the hand clip, a worker simulating a 25 ms detection, a full-window canvas redrawn every frame):**
+
+  | Way | Render fps | Late frames per s | Results per s | Main-thread cost per frame | Capture → result |
+  |---|---|---|---|---|---|
+  | No transfer (baseline) | 59.0 | 0.06 | – | – | – |
+  | VideoFrame | 58.9–59.1 | 0.06 | 24.9–28.4 | 0.12 / 0.30 ms | 34–36 ms |
+  | **VideoFrame + catch-up (chosen)** | 59.1 | 0.13 | **29.4** | 0.12 / 0.30 ms | 35 ms |
+  | Processor stream transferred to the worker | 59.0 | 0.06 | 29.5 | no JS (stream plumbing on the main thread) | can't be measured: other clock |
+
+  - `MediaStreamTrackProcessor` doesn't exist inside workers in Chrome 155, and a `MediaStreamTrack` can't be transferred (`DataCloneError`). Only a processor made on the main thread, with its readable stream transferred, works. Its frames are stamped on Chrome's internal monotonic clock (µs since boot), so capture times would have to be estimated.
+  - `createImageBitmap(video)` costs 1.6 ms. In T4's experiment it detected no faster than a VideoFrame (GPU 61.8 against 62.8 ms; CPU 50.2 against 50.8 ms).
+- **Why:**
+  - The VideoFrame route equals the stream route on render impact and throughput.
+  - It keeps exact capture times on the page clock.
+  - It reads the same `<video>` the preview shows (one decode, D-053).
+  - It needs no Chrome-only API.
+  - The worker removes the main-thread stutter entirely: from about 20 late frames per second (one per detection) to 0.0–0.1 per second (PROGRESS.md, T4 part 2).
+
+## D-065: The render bar counts late frames and real gaps, over 60 s of drawing with the camera on (T4 part 2)
+- **Decision:**
+  - **NFR-1 and AC-2:** during a 60 s run of continuous drawing with the camera on, render ≥ 55 fps, at most 1 late frame (a real gap over 25 ms) per second, and no real gap over 50 ms. The tracker's first load, in a fresh profile, causes no gap over 50 ms either.
+  - **"Per second" means the rate over the run** (at most 60 late frames in 60 s). The worst single second is reported next to it, so a bad stretch can't hide in the average.
+  - **`measure-fps` reports the bar per tracking run as PASS / FAIL with the reasons:**
+    - `--fresh-each` gives a new Chrome and profile per run, so every run is a first visit;
+    - tracking runs press Enable 2.5 s after load, so page load isn't counted as tracker start-up;
+    - the start-up window runs from the exact moment loading began to 1 s after ready (logged by the tracker).
+  - **A run is flagged and the exit code is 2:**
+    - INCOMPLETE, if the page stopped rendering (a sleeping display, a minimized or covered window; the launch flags now include `--disable-features=CalculateNativeWinOcclusion`);
+    - or CAMERA STALLED, if Chrome's fake camera stopped delivering frames (an intermittent automation-only quirk, seen in a few runs in T4).
+- **Alternatives:** render fps ≥ 55 alone (the old bar); rAF-timestamp gaps (D-063).
+- **Why:** the old bar passed the main-thread tracker at 56–60 fps while every detection made a frame late. These three numbers fail it, and pass the worker, for the reason the eye sees.
+
+## D-066: The worker is a separate classic build from a Vite plugin, content-hashed in production (T4 part 2)
+- **Decision:**
+  - `vite/handWorkerPlugin.ts` builds `src/perception/worker/handWorker.ts` with Vite's own `build()` as one IIFE script (`codeSplitting: false`).
+  - **In dev:** built in watch mode into Vite's cache and served at `<base>workers/hand-worker.js` (no-cache). Edits rebuild by themselves (checked).
+  - **In production:** emitted as `workers/hand-worker.<sha256 prefix>.js`. The main bundle gets that exact URL from `virtual:hand-worker`.
+  - The worker has its own tsconfig (WebWorker globals). Build tooling has `tsconfig.node.json` (Node types, `@types/node` 24.x, approved), so Node's globals never reach the game. `typecheck` checks all three.
+- **Alternatives:**
+  - Vite's `new Worker(new URL(…))`: dev serves it as a module, and MediaPipe needs a classic worker (the constraint from the first spec review, confirmed in T4);
+  - a pre-script writing into `public/workers/` (no rebuild on edit);
+  - an unhashed name (a cached old worker could pair with a newer main bundle).
+- **Why:**
+  - It works the same in `npm run dev`, `vite preview` and on Vercel.
+  - A changed worker always gets a new URL, and an unchanged worker keeps its hash (`hand-worker.bb09af3785.js` across rebuilds), so the cache still helps.
+
+## D-067: A failed worker is restarted once, then detection falls back to the main thread; in-flight frames are always released (T4 part 2)
+- **Decision:**
+  - **Order:**
+    1. Worker GPU → worker CPU (inside the worker: at start, and mid-session if the GPU throws).
+    2. The worker restarted once (`TRACKING.workerRestarts`), only if it had been running. A worker that never started is not retried: a missing script or no wasm won't fix itself.
+    3. Main-thread GPU → main-thread CPU.
+    4. Give up, with an ink note offering the mouse.
+  - **What counts as failing:** the worker can't be created, its script throws or fails to load, it reports that no delegate works, `ready` doesn't arrive within 30 s, or a result is more than 2 s late (tunable).
+  - **Frames:** the main thread closes its own clone handle on each in-flight frame when the result arrives, or the moment it gives up on the worker, so the camera buffer is released even if the worker dies holding its copy.
+  - **Rehearsals:** `?simulateTracker=worker-crash | worker-hang | worker-crash-always | worker-missing` rehearses each path. All four were checked:
+    - crash → Worker · GPU (restarted ×1);
+    - hang → Worker · GPU (restarted ×1), the camera still live;
+    - crash-always → Main thread · GPU;
+    - missing → Main thread · GPU, because the "script" was the HTML page.
+- **Alternatives:** fall back to the main thread at once (your first wording); retry forever.
+- **Why:**
+  - A worker on the CPU never delays a frame. The main thread on the GPU makes about 20 frames late every second.
+  - One restart covers a one-off crash without looping.
+- **Known cost:** when a worker hangs or crashes with a frame queued, Chrome logs "A VideoFrame was garbage collected without being closed" once, for the copy the dead worker held (seen in the hang rehearsal). Our own handle is closed at once, and the camera keeps running.
+
+## D-068: The hand worker tries the CPU delegate first; the main-thread fallback keeps the GPU first (T4 part 2; updates FR-2)
+- **Decision:**
+  - In the worker, the order is CPU, then GPU. On the main thread it stays GPU, then CPU.
+  - `?delegate=cpu|gpu` forces one delegate on both threads.
+  - AC-15 compares the worker's two delegates on the reviewer's Mac. If the GPU wins clearly there, a per-platform default is proposed.
+- **Alternatives:** GPU first everywhere (the original FR-2).
+- **Why (measured in T4 on Iris Xe, a fresh profile per run, the hand clip):**
+  - **The GPU is slow in the worker:** 62 ms per detection with a hand (100 ms p95), against 25–29 ms on the main thread. Tracking reached only 15 fps.
+  - **Its first-visit shader compile still stalls the screen**, for 0.5–0.7 s. It runs in Chrome's GPU process, which also composites the page.
+  - **The CPU in the worker is clean:** 34–50 ms per detection, 19–28 fps tracking, and no stall (start gap 22–39 ms). It passes the NFR-1 render bar on the laptop and on Retina.
+  - **On the main thread the GPU stays faster**, so the fallback keeps it first.
+  - The GPU's slowness in a worker may be specific to this machine (Intel graphics through ANGLE/D3D11), so the Mac re-checks it.
