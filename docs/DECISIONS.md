@@ -317,3 +317,78 @@ Each entry: the decision, the alternatives, and why. Add new ones at the bottom 
   - The camera controller stays off on `?dev=ui`, so the live camera card no longer covers the gallery.
 - **Alternatives:** each HUD module handling its own key and writing localStorage itself; untyped settings events.
 - **Why:** A key and a settings checkbox now share one path. T5's M key and T13's S key are one line each, and T13's panel only calls `update()`. The debug overlay's D key stays in the dev tool.
+
+## D-058: MediaPipe assets: pinned package, classic wasm copied at install and build, model URL "/1/" (T4)
+- **Decision:**
+  - `@mediapipe/tasks-vision` is pinned to exactly `1.1.1` (no caret), because the wasm and the JavaScript must match.
+  - `scripts/copy-mediapipe.mjs` copies the four classic wasm files (SIMD and no-SIMD) into the git-ignored `public/mediapipe/wasm/`. It runs from `postinstall` **and** `prebuild`.
+  - The `_module_` variant (13.5 MB) is left out until something uses it.
+  - `scripts/fetch-model.mjs` downloads `…/float16/1/hand_landmarker.task` once. It is committed: 7,819,105 bytes, SHA-256 `fbc2a300…07cde1`.
+- **Alternatives:**
+  - a caret range;
+  - copying every wasm file;
+  - the official guide's `…/float16/latest/…` URL.
+- **Why:**
+  - `prebuild` guarantees a build never ships without the wasm, even if a host restores a cached `node_modules` and skips `postinstall`.
+  - On 2026-10-21 `/1/` and `/latest/` served the same file (same size, same MD5, which matched our download). The versioned URL means a rerun can never silently fetch a different model.
+  - `vite preview` serves `.wasm` as `application/wasm`. Vercel is checked after the push.
+
+## D-059: The tracker loads on "Enable camera" and says so (T4)
+- **Decision:**
+  - The tracker starts loading on the first `camera:status` `starting`, so the download (about 13 MB wasm plus 7.8 MB model) overlaps the permission prompt.
+  - While it loads, the preview corner's status chip reads "Readying your wand…": above the picture, or in its place when the preview is hidden.
+  - It reports through two new events: `tracker:status` (loading / ready / failed, with the delegate and the GPU's failure reason) and `tracker:slow`.
+  - Presentation turns them into words (`trackingCopy.ts`). A failure becomes an error ink note offering the mouse. The slow tip is a warn ink note, at most once a minute.
+- **Alternatives:**
+  - load on page load;
+  - text carried on the event;
+  - one event with a "slow" state.
+- **Why:**
+  - Mouse-only players never download 20 MB.
+  - Perception reports facts and presentation words them, the same split as D-049.
+  - Lifecycle and slowness are separate facts. A tracker can be ready and slow.
+
+## D-060: Detection is per video frame, gated, with strictly increasing timestamps (T4)
+- **Decision:**
+  - `requestVideoFrameCallback` drives detection, with a rAF loop that polls the frame count as a fallback.
+  - A pure `detectScheduler` skips frames it has seen, never starts a detection while one is running, and hands out `max(round(now), last + 1)` as the timestamp. The timestamp never resets, even across camera restarts or a delegate swap.
+  - If the GPU throws mid-session, the scheduler stays busy while the landmarker is recreated on the CPU, so no frame can use a half-built one.
+  - `hand:landmarks` is emitted for every analysed frame, with `[]` when no hand is found.
+- **Alternatives:**
+  - detect from the render loop;
+  - emit landmarks only when a hand is found, and time out the skeleton.
+- **Why:**
+  - MediaPipe's VIDEO mode rejects non-increasing timestamps.
+  - Detecting on the camera's schedule means no frame is analysed twice and none is waited for.
+  - An explicit empty frame is simpler and more honest than a timeout.
+  - The 300 ms "hand lost" grace is T5's job, in one place.
+
+## D-061: Only handTracker.ts may import MediaPipe (T4)
+- **Decision:** a lint rule (`no-restricted-imports`) bans `@mediapipe/*` everywhere except `src/perception/handTracker.ts`. Checked with a throwaway violating file.
+- **Alternatives:** the scenes-only ban from T0.
+- **Why:** if detection moves to a Web Worker, exactly one file changes. ESLint's rule can't see dynamic `import()`, so review covers that case.
+
+## D-062: The skeleton is candle gold, drawn per detection, never while hidden (T4)
+- **Decision:**
+  - The skeleton is a canvas in the picture frame's new overlay slot (`.wg-frame__overlay`, every frame style). It is drawn when each frame's landmarks arrive, not from the render loop.
+  - Bones are a thin `--gold-400` line over a wider faint `--gold-600` glow: two plain strokes, no `shadowBlur`.
+  - Joints are `--gold-200` dots. The thumb and index tips are larger `--parchment-100` beads with a gilt halo.
+  - Colours are read from the theme tokens at first draw.
+  - Points go through `coverFit`, the same `object-fit: cover` crop as the picture.
+  - Nothing is drawn while the picture is hidden (P), and the canvas is cleared, so it never reappears showing an old hand.
+- **Alternatives:**
+  - MediaPipe's `DrawingUtils` with debug colours;
+  - drawing from the render loop with interpolation.
+- **Why:**
+  - The skeleton belongs to the art direction.
+  - Drawing per detection keeps it in step with the picture frame it came from.
+  - Without `coverFit`, a 16:9 webcam's skeleton would drift sideways, because the picture crops its sides.
+
+## D-063: Jank is measured with real time, not only rAF timestamps (T4)
+- **Decision:** `?reportFps=1` also logs `wallGapMs` (the longest real gap between rAF callbacks) and `late` (callbacks more than 25 ms after the previous one). `measure-fps` shows them as "Longest real gap" and "Late frames per s".
+  - It also flags a run as INCOMPLETE, and exits with code 2, when the page logged far fewer seconds than it ran. That happens when the display sleeps or the window is minimized.
+- **Alternatives:** keep the T2 metric (gaps between rAF timestamps).
+- **Why:**
+  - Chrome aligns rAF timestamps to vsync. A frame whose callback ran 20–30 ms late, because a hand detection ran just before it in the same rendering step, still shows a 16.7 ms timestamp gap.
+  - In T4's first runs the old metric read 60 fps and a 17.5 ms longest gap, while real gaps reached 47–57 ms about 20 times a second: one per detection.
+  - Measured on the idle stage, the two metrics agree (18 ms), so earlier tables stay valid.

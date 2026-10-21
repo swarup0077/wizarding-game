@@ -36,6 +36,16 @@ export type CameraActual = {
   label: string;
 };
 
+/** Where MediaPipe runs hand detection (FR-2): WebGL on the GPU, or wasm on the CPU. */
+export type TrackerDelegate = 'GPU' | 'CPU';
+
+/**
+ * Why hand tracking couldn't start. Perception reports the kind; presentation words it.
+ * `unsupported`: no WebAssembly. `load-failed`: the runtime or model didn't load, or neither
+ * delegate could start.
+ */
+export type TrackerFailureKind = 'unsupported' | 'load-failed';
+
 /** A HUD button or shortcut key the player pressed. Other layers act on these through the bus. */
 export type UiActionId =
   | 'camera.enable'

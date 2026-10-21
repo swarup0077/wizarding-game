@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/copy-mediapipe.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -15,7 +16,9 @@
     "lint": "eslint . --max-warnings 0 && prettier --check .",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "measure:fps": "node scripts/measure-fps.mjs"
+    "measure:fps": "node scripts/measure-fps.mjs",
+    "postinstall": "node scripts/copy-mediapipe.mjs",
+    "fetch:model": "node scripts/fetch-model.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -26,5 +29,8 @@
     "typescript-eslint": "^8.72.0",
     "vite": "^8.3.4",
     "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "1.1.1"
   }
 }

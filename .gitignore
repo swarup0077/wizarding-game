@@ -17,3 +17,6 @@ public/mediapipe/
 .DS_Store
 Thumbs.db
 *.log
+
+# Private local media (the hand-only test clip, T4). Never committed.
+local/

@@ -20,6 +20,16 @@
   height: auto;
 }
 
+/* Drawn over the picture (the hand skeleton), filling the window in every style. Above a
+   style's varnish, so lines stay crisp to the edges. */
+.wg-frame__canvas > .wg-frame__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+}
+
 .wg-frame__corner,
 .wg-frame__plate {
   display: none;

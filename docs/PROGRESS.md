@@ -45,10 +45,11 @@ The cases:
 | `retina-cap1.5-…` / `retina-cap2-…` | Chrome device emulation at 1440×900 CSS px and DPR 2 (the reviewer's MacBook, 2880×1800 device px) at each DPR cap |
 
 Options: `--seconds 30` (longer runs), `--only retina-cap2-drawing` (selected runs), `--query "demo=loop&handRate=1"` (extra URL query for every run, e.g. a spell demo in later tasks), `--url https://wizarding-game.vercel.app` (measure the deployed site; nothing is started). `CHROME_PATH` overrides where Chrome is found.
+Since T4: `--clip local/clips/hand.y4m` feeds the private hand clip to Chrome's fake camera (it is always the fake camera, never the webcam), and the `*-tracking*` runs add a tracking table (delegate, tracking and video fps, detection mean / p95, first detection, hand seen). Both tables now show the **longest real gap** and **late frames per second** (D-063). A run is flagged INCOMPLETE if the page stopped rendering (display asleep, window minimized); the display must stay awake while measuring.
 
 Reading the table:
 - **fps** is capped by the display (60 here), so it can't show headroom.
-- **Longest frame gap** shows stalls: anything above about 25 ms is a visible hitch.
+- **Longest frame gap** shows stalls: anything above about 25 ms is a visible hitch. It compares rAF timestamps, which hide a late callback; **longest real gap** and **late frames per s** (T4) don't.
 - **Our work per frame** is the headroom: our update and draw time out of the 16.7 ms frame budget.
 
 ## Spec review before T0 (2026-10-21)
@@ -273,3 +274,81 @@ A follow-up run with timestamps showed every long gap inside the first 2.2 s aft
 - The minimal frame's hairline is deliberately faint; against a real webcam picture it may need a touch more opacity. That's one token (`--line-hairline`), and the final frame is chosen in Phase 1/2 anyway.
 - Until T5 emits `hand:found` / `hand:lost`, the chip only says "Camera on".
 
+
+## T4: Hand tracking (2026-10-21) — IN PROGRESS: paused at the FR-2 stop rule
+**Done:**
+- **Assets** (D-058):
+  - `@mediapipe/tasks-vision` 1.1.1, pinned exactly.
+  - `scripts/copy-mediapipe.mjs` (postinstall and prebuild): 4 files, 26.8 MB, into git-ignored `public/mediapipe/wasm/`.
+  - `scripts/fetch-model.mjs`: the model is committed at `public/models/hand_landmarker.task`, 7,819,105 bytes, SHA-256 `fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1`. The MD5 matches Google's storage.
+  - `vite preview` serves the wasm as `application/wasm`. Vercel: not checked yet (needs a push).
+  - The MediaPipe JS is its own 154 kB chunk; the main bundle is 58 kB.
+- **`perception/`:**
+  - `handTracker.ts`: the only MediaPipe import, enforced by lint (D-061). GPU, then CPU, both at start and mid-session.
+  - `videoFrameLoop.ts`: rVFC with a rAF fallback.
+  - Pure modules: `detectScheduler.ts`, `delegateFallback.ts` (+ `?delegate=cpu|gpu`), `landmarks.ts`, `slowTrackingWatch.ts`.
+- **`core/`:** `handTopology.ts`, `rollingStats.ts`.
+- **Events:** `tracker:status` and `tracker:slow` (D-059).
+- **Preview:**
+  - The candle-gold skeleton in the frame's new overlay slot, with `coverFit` for wide webcams (D-062). It is not drawn while the preview is hidden.
+  - "Readying your wand…" on the status chip while the tracker loads.
+  - An error ink note offering the mouse if tracking can't start.
+  - The low-fps tip as a warn ink note.
+- **Debug overlay:** Tracker, Delegate, Tracking fps (with the video fps), Detection mean / p95, First detection, Hand.
+- **`measure-fps`:**
+  - Tracking runs and `--clip <file>`.
+  - Real-gap and late-frame columns (D-063).
+  - Every other console line.
+  - An INCOMPLETE flag when the page stopped rendering.
+
+**Numbers so far** (Iris Xe, on AC power, Chrome 155, Chrome's built-in fake camera at 640×480 @ 20 fps, **no hand in view**, so palm detection runs every frame):
+
+| | GPU delegate | CPU delegate |
+|---|---|---|
+| Detection, mean / p95 | 19–25 / 24–30 ms | 28–31 / 30–42 ms |
+| First detection, fresh Chrome profile | **2.8–3.4 s** (main thread blocked) | 50–130 ms |
+| First detection, same profile, later page loads | about 200 ms | about 55–95 ms |
+| Late frames (real gap > 25 ms) | about 20 per second: one per detection | about 20 per second |
+| Longest real frame gap | 47–57 ms | 47–51 ms |
+| rAF-timestamp fps (the T2 metric) | 59.5–60 | 56–60 |
+
+- The old metric reads about 60 fps while every detection makes a frame late. That is the stutter D-063 exists to catch.
+- The full table is incomplete: the laptop's display went to sleep mid-measurement, and Chrome stops rendering when nothing is on screen. Retina runs and hand-present numbers are still to be measured.
+- Tests: 39 files, 257 tests (~1.2 s).
+
+**MediaPipe's own console lines** (AC-12: known, not from our code):
+- Both delegates:
+  - `I… gl_context.cc:408] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 …)), renderer: WebKit WebGL`
+  - `W… gl_context.cc:1135] OpenGL error checking is disabled` (warning)
+  - `Graph successfully started running.`
+  - `W… landmark_projection_calculator.cc:81] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI…` (warning)
+- CPU only:
+  - `INFO: Created TensorFlow Lite XNNPACK delegate for CPU.` (logged through console.error)
+  - `W… inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference…` (warning, twice)
+- Not MediaPipe: a 404 for `/favicon.ico`. The site has none; it predates T4.
+
+**Observed in automation only:** Chrome's fake camera sometimes ends its track a few seconds in (about 1 launch in 5, with either delegate), which shows "The camera stopped". It's a fake-device quirk under repeated launches. Rerun if a table shows it.
+
+**Blocked on:**
+1. The stop rule. **Decided: (b) the Web Worker**, planned next. The fresh-profile freeze would hit a first-time visitor, and Phase 1's 3D rendering tightens the main-thread budget. Option (a) (a reduced rate while no hand is seen) moved to LATER.md as a heat and battery option.
+2. The hand-only clip, for hand-present numbers and the skeleton screenshots.
+3. A push, for the Vercel MIME check.
+
+**The hand-only test clip** (private; `local/` is git-ignored; automated runs never use the real webcam, D-054):
+1. **Record** with the Windows Camera app in Video mode. Frame only your hand: tilt the screen down or sit to one side, so your face is never in view. A plain wall behind is ideal, in normal room lighting.
+2. **What to do, about 12 s:**
+   - 1 s with no hand;
+   - your hand enters at 40–80 cm;
+   - 2 pinch-and-release cycles;
+   - 2 clockwise circles while pinched;
+   - a zigzag;
+   - a swish-and-flick;
+   - an open-hand wave;
+   - the hand leaves for 1 s.
+3. **Check** the whole clip. If any frame shows your face, delete it and record again.
+4. **Move** it from `Pictures\Camera Roll` to `local\clips\hand-raw.mp4`.
+5. **Install ffmpeg** once: `winget install Gyan.FFmpeg`.
+6. **Convert:** `ffmpeg -i local\clips\hand-raw.mp4 -an -vf "fps=30,scale=640:480:force_original_aspect_ratio=increase,crop=640:480" -pix_fmt yuv420p local\clips\hand.y4m`.
+   - A raw webcam picture shows your right hand on the **left**. If `hand-raw.mp4` shows it on the right, the app saved it mirrored: start the filter with `hflip,`.
+   - The crop keeps the centre 4:3, so keep your hand away from the far left and right edges while recording.
+7. **Use:** `npm run build && npm run measure:fps -- --only native-tracking,retina-cap2-tracking,retina-cap2-tracking-drawing,native-tracking-cpu --clip local/clips/hand.y4m`, with the display awake.

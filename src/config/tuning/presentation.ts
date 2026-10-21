@@ -121,4 +121,25 @@ export const HUD = {
   toastMax: 3,
   /** How long a toast stays, by level. Initial guess, tuned in T13. */
   toastMs: { info: 4000, warn: 6000, error: 9000 },
+  /** The low-tracking-fps tip is shown at most once in this long (FR-2). */
+  slowTipCooldownMs: 60_000,
+  /** Gap between the status chip and the preview when both show (the "readying" line). */
+  pipChipGapPx: 8,
+};
+
+/** FR-20: the hand skeleton drawn over the webcam preview, in CSS px. */
+export const SKELETON = {
+  /** Thin gold bone line... */
+  boneWidthPx: 1.6,
+  boneAlpha: 0.9,
+  /** ...over a wider, faint gilt glow. */
+  glowWidthPx: 5,
+  glowAlpha: 0.3,
+  jointRadiusPx: 2,
+  /** The thumb and index tips (the wand fingers) are larger, with a soft halo. */
+  tipRadiusPx: 3.4,
+  tipHaloRadiusPx: 7,
+  tipHaloAlpha: 0.35,
+  /** The preview is small, so its canvas can afford the screen's full sharpness up to this. */
+  maxPixelRatio: 2,
 };

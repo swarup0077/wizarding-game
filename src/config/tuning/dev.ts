@@ -18,6 +18,8 @@ export const DEBUG = {
   /** fps is averaged over this sliding window. */
   fpsWindowMs: 1000,
   eventLogSize: 20,
+  /** `?reportFps=1`: a frame whose callback runs this long after the previous one is late (a visible hitch). */
+  lateFrameMs: 25,
 };
 
 /** `?dev=camera`: the camera dev trigger (screenshots, checking messages). */

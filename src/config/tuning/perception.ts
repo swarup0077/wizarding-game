@@ -9,6 +9,16 @@ export const TRACKING = {
   lowFpsThreshold: 20,
   /** ...for this long. */
   lowFpsWindowMs: 3000,
+  /** Tracking counts as recovered after this long at or above the threshold. */
+  lowFpsRecoverMs: 3000,
+  /** After tracking (re)starts, ignore fps this long: the meter needs a full window first. */
+  lowFpsStartGraceMs: 1500,
+  /** How often the slow-tracking check runs while tracking. */
+  lowFpsCheckMs: 250,
+  /** Detection mean / p95 are taken over this many recent detections (~4 s at 30 fps). */
+  detectStatsWindow: 120,
+  /** The first detections compile GPU shaders and warm caches: reported apart, not averaged. */
+  warmupDetections: 3,
   /** Comfortable hand distance from the camera, quoted in the tip. */
   handDistanceCmMin: 40,
   handDistanceCmMax: 80,

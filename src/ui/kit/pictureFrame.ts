@@ -12,6 +12,8 @@ export interface PictureFrameOptions {
   style: PreviewFrame;
   /** Text on the name plate, for styles that show one. */
   plate?: string;
+  /** Drawn over the picture, filling its window exactly (the hand skeleton). */
+  overlay?: HTMLElement;
 }
 
 /** A framed picture around `content` (a video, canvas or placeholder). */
@@ -19,6 +21,10 @@ export function pictureFrame(content: HTMLElement, options: PictureFrameOptions)
   const frame = el('figure', 'wg-frame');
   const canvas = el('div', 'wg-frame__canvas');
   canvas.append(content);
+  if (options.overlay) {
+    options.overlay.classList.add('wg-frame__overlay');
+    canvas.append(options.overlay);
+  }
   frame.append(canvas);
   for (const corner of ['tl', 'tr', 'bl', 'br']) {
     frame.append(svgSpan(`wg-frame__corner wg-frame__corner--${corner}`, CORNER_FLOURISH));

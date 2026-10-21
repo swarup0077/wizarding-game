@@ -19,8 +19,11 @@ export interface RenderInfo {
 export interface DebugOverlay {
   /** Call once per rendered frame with its timestamp (ms). */
   frame(t: number): void;
-  /** Adds a read-only row, refreshed a few times per second while visible. */
-  addStat(label: string, read: () => string): void;
+  /**
+   * Adds a read-only row, refreshed a few times per second while visible. With `ok`, the
+   * value turns green or red (null: neither, e.g. no data yet).
+   */
+  addStat(label: string, read: () => string, ok?: () => boolean | null): void;
   /** Adds a checkbox. */
   addToggle(label: string, initial: boolean, onChange: (on: boolean) => void): void;
   /** Adds a drop-down list. */
@@ -44,15 +47,15 @@ export function createDebugOverlay(parent: HTMLElement, info: () => RenderInfo):
   panel.hidden = true;
   parent.appendChild(panel);
 
-  const stats: { value: HTMLElement; read: () => string }[] = [];
+  const stats: { value: HTMLElement; read: () => string; ok?: () => boolean | null }[] = [];
   const meter = createFpsMeter(DEBUG.fpsWindowMs);
   const refreshMs = 1000 / DEBUG.textRefreshHz;
   let lastRefresh = -Infinity;
   let fps = 0;
 
   const fpsValue = addRow(panel, 'Render fps');
-  const addStat = (label: string, read: () => string): void => {
-    stats.push({ value: addRow(panel, label), read });
+  const addStat = (label: string, read: () => string, ok?: () => boolean | null): void => {
+    stats.push({ value: addRow(panel, label), read, ok });
   };
   addStat('Canvas', () => {
     const r = info();
@@ -77,7 +80,12 @@ export function createDebugOverlay(parent: HTMLElement, info: () => RenderInfo):
     fps = meter.read(t);
     fpsValue.textContent = fps.toFixed(0);
     fpsValue.dataset['ok'] = String(fps >= PERFORMANCE.renderFpsTarget);
-    for (const stat of stats) stat.value.textContent = stat.read();
+    for (const stat of stats) {
+      stat.value.textContent = stat.read();
+      const ok = stat.ok?.();
+      if (ok === undefined || ok === null) delete stat.value.dataset['ok'];
+      else stat.value.dataset['ok'] = String(ok);
+    }
   }
 
   return {

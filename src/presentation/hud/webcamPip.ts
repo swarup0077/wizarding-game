@@ -4,7 +4,8 @@ import type { EventMap } from '../../core/events';
 import type { Settings } from '../../core/settingsTypes';
 import { pictureFrame, setFrameStyle, setStatusTag, statusTag } from '../../ui';
 import { CAMERA_LABELS } from './cameraCopy';
-import { type HandState, previewView } from './previewState';
+import { createHandSkeleton } from './handSkeleton';
+import { type HandState, type PreviewView, previewView, type TrackerState } from './previewState';
 
 /** What the preview needs. */
 export interface WebcamPipOptions {
@@ -17,17 +18,26 @@ export interface WebcamPipOptions {
 
 /**
  * The webcam preview (FR-20), bottom-right and mirrored like a selfie, in the frame style
- * chosen by `previewFrame`. It never takes clicks, so strokes drawn over it reach the stage.
- * With `showPreview` off (P) the picture is hidden with opacity, so the video keeps playing
- * for the tracker, and a small status chip takes its place. Both are built once.
+ * chosen by `previewFrame`, with the tracked hand's skeleton drawn over it. It never takes
+ * clicks, so strokes drawn over it reach the stage. With `showPreview` off (P) the picture is
+ * hidden with opacity, so the video keeps playing for the tracker, the skeleton isn't drawn,
+ * and a small status chip takes its place. While the tracker readies, the chip shows above
+ * the picture. Everything is built once.
  */
 export function createWebcamPip(options: WebcamPipOptions): void {
   const { parent, bus, video } = options;
   let settings = options.settings;
   let cameraLive = false;
   let hand: HandState = 'unknown';
+  let tracker: TrackerState = 'idle';
+  let view: PreviewView | null = null;
 
-  const frame = pictureFrame(video, { style: settings.previewFrame, plate: CAMERA_LABELS.plate });
+  const skeleton = createHandSkeleton(video);
+  const frame = pictureFrame(video, {
+    style: settings.previewFrame,
+    plate: CAMERA_LABELS.plate,
+    overlay: skeleton.canvas,
+  });
   frame.classList.add('wg-pip');
   frame.setAttribute('aria-hidden', 'true');
   const vw = HUD.pipWidthFraction * 100;
@@ -35,23 +45,36 @@ export function createWebcamPip(options: WebcamPipOptions): void {
 
   const chip = statusTag('');
   chip.classList.add('wg-pip-chip');
-  for (const el of [frame, chip]) {
-    el.style.right = `${HUD.pipMarginPx}px`;
-    el.style.bottom = `${HUD.pipMarginPx}px`;
-  }
-  parent.append(frame, chip);
+
+  // One corner holds both: the chip stacks above the picture when both show.
+  const corner = document.createElement('div');
+  corner.className = 'wg-pip-corner';
+  corner.style.right = `${HUD.pipMarginPx}px`;
+  corner.style.bottom = `${HUD.pipMarginPx}px`;
+  corner.style.gap = `${HUD.pipChipGapPx}px`;
+  corner.append(chip, frame);
+  parent.append(corner);
 
   function render(): void {
-    const view = previewView({ cameraLive, showPreview: settings.showPreview, hand });
+    view = previewView({ cameraLive, showPreview: settings.showPreview, hand, tracker });
     frame.classList.toggle('is-shown', view.frameShown);
     chip.classList.toggle('is-shown', view.chipShown);
     setStatusTag(chip, view.chipText, view.chipTone);
+    // A hidden picture gets no drawing; clearing means it never reappears with a stale hand.
+    if (!view.skeletonShown) skeleton.clear();
   }
 
   bus.on('camera:status', ({ state }) => {
     cameraLive = state === 'live';
     if (!cameraLive) hand = 'unknown';
     render();
+  });
+  bus.on('tracker:status', ({ state }) => {
+    tracker = state;
+    render();
+  });
+  bus.on('hand:landmarks', ({ points }) => {
+    if (view?.skeletonShown) skeleton.draw(points);
   });
   bus.on('hand:found', () => {
     hand = 'found';

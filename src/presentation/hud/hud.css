@@ -2,11 +2,26 @@
    all come from the kit; this file only places, mirrors and shows or hides them. Panels are
    built once and shown with opacity (D-046), so their filtered paper is painted only once. */
 
-/* The webcam preview: a moving portrait, bottom-right. Never takes clicks. */
-.wg-pip {
+/* The preview corner, bottom-right: the status chip stacked above the picture. Whatever is
+   hidden leaves the flow, so a lone chip sits in the corner itself. */
+.wg-pip-corner {
   position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+/* The webcam preview: a moving portrait. Never takes clicks. */
+.wg-pip {
+  position: relative;
   opacity: 0;
   transition: opacity var(--dur-ink) var(--ease-ink);
+}
+.wg-pip:not(.is-shown) {
+  position: absolute;
+  right: 0;
+  bottom: 0;
 }
 .wg-pip,
 .wg-pip * {
@@ -22,12 +37,18 @@
   transform: scaleX(-1);
 }
 
-/* The status chip that replaces the picture while the preview is hidden (P). */
+/* The status chip: replaces the picture while the preview is hidden (P), and sits above it
+   while the tracker readies. A hidden chip fades out just above the corner, where it was. */
 .wg-pip-chip {
-  position: absolute;
+  position: relative;
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--dur-ink) var(--ease-ink);
+}
+.wg-pip-chip:not(.is-shown) {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
 }
 .wg-pip-chip.is-shown {
   opacity: 1;

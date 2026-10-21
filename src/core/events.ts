@@ -4,6 +4,8 @@ import type {
   SpellId,
   Tier,
   TracePoint,
+  TrackerDelegate,
+  TrackerFailureKind,
   UiActionId,
   Vec2,
 } from './types';
@@ -32,9 +34,28 @@ export interface EventMap {
     t: number;
   };
 
+  /**
+   * The hand tracker's lifecycle (FR-2). `loading` starts when the camera is asked for.
+   * `ready` names the active delegate; `gpuError` says why the GPU wasn't used, when it wasn't.
+   * `failed` carries the kind and the browser's or MediaPipe's own text (`detail`).
+   */
+  'tracker:status': {
+    state: 'loading' | 'ready' | 'failed';
+    delegate?: TrackerDelegate;
+    gpuError?: string;
+    failure?: TrackerFailureKind;
+    detail?: string;
+    t: number;
+  };
+  /** Tracking fps stayed below the FR-2 floor for a while (`slow: true`), or recovered. */
+  'tracker:slow': { slow: boolean; fps: number; t: number };
+
   'hand:found': { t: number };
   'hand:lost': { t: number };
-  /** Debug and PiP skeleton only. */
+  /**
+   * Debug and PiP skeleton only. One per analysed video frame: the 21 landmarks of the
+   * tracked hand in selfie-mirrored [0,1] video coordinates, or `[]` when no hand was found.
+   */
   'hand:landmarks': { points: Vec2[]; t: number };
 
   'wand:move': { p: Vec2; t: number; source: 'hand' | 'mouse' };

@@ -1,3 +1,4 @@
+import { HUD, TRACKING } from '../../config/tuning';
 import type { EventBus } from '../../core/eventBus';
 import type { EventMap } from '../../core/events';
 import type { Settings } from '../../core/settingsTypes';
@@ -6,6 +7,7 @@ import { cameraNotice, PREVIEW_COPY } from './cameraCopy';
 import './hud.css';
 import type { Platform } from './platform';
 import { createToasts } from './toasts';
+import { slowTrackingTip, trackerNotice } from './trackingCopy';
 import { createWebcamPip } from './webcamPip';
 
 /** What the HUD needs from the bootstrap. */
@@ -33,6 +35,20 @@ export function mountHud(options: HudOptions): void {
     const notice = cameraNotice(previous, status);
     previous = status.state;
     if (notice) bus.emit('system:message', notice);
+  });
+
+  // Hand tracking: a failure offers the mouse; slow tracking gets the lighting tip, at most
+  // once per cooldown so it never nags.
+  bus.on('tracker:status', (status) => {
+    const notice = trackerNotice(status);
+    if (notice) bus.emit('system:message', notice);
+  });
+  let lastTipAt = -Infinity;
+  bus.on('tracker:slow', ({ slow, t }) => {
+    if (!slow || t - lastTipAt < HUD.slowTipCooldownMs) return;
+    lastTipAt = t;
+    const tip = slowTrackingTip(TRACKING.handDistanceCmMin, TRACKING.handDistanceCmMax);
+    bus.emit('system:message', { level: 'warn', text: tip });
   });
 
   // Hiding the preview could look like the camera stopped, so say that it didn't.

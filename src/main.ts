@@ -4,11 +4,14 @@ import { createEventBus, type EventBus } from './core/eventBus';
 import type { EventMap } from './core/events';
 import { createDebugOverlay, type DebugOverlay } from './dev/debugOverlay';
 import { createFpsReporter } from './dev/fpsReporter';
+import { addTrackerStats } from './dev/trackerStats';
 import type { StrokeDemo } from './dev/strokeDemo';
 import { createBrowserCamera } from './input/camera';
 import { createCameraController } from './input/cameraController';
 import { startKeyboardActions } from './input/keyboardActions';
 import { createMouseWandSource, type HandRatePreview } from './input/mouseWandSource';
+import { delegateOrderFromQuery } from './perception/delegateFallback';
+import { createHandTracker } from './perception/handTracker';
 import { parseDprCapOverride } from './presentation/canvasSize';
 import { createCanvasStage, type CanvasStage } from './presentation/canvasStage';
 import { mountHud } from './presentation/hud/mountHud';
@@ -90,6 +93,15 @@ export async function bootstrap(): Promise<App> {
     settings: settingsStore.get(),
     now: () => systemClock.now(),
   });
+  // Hand tracking (T4) reads the same <video> the preview shows. It loads when the camera is
+  // asked for; `?delegate=cpu` forces the CPU, to measure the fallback path.
+  const tracker = createHandTracker({
+    bus,
+    video: camera.video,
+    clock: systemClock,
+    assetBase: import.meta.env.BASE_URL,
+    delegates: delegateOrderFromQuery(window.location.search),
+  });
   // The UI gallery shows the camera card itself; the live one would cover it.
   if (params.get('dev') !== 'ui')
     createCameraController({ bus, camera, clock: systemClock }).start();
@@ -106,7 +118,9 @@ export async function bootstrap(): Promise<App> {
 
   const overlay = buildOverlay(stage, dprCap, capOverride !== null, handRate, trail);
   addCameraStats(overlay, cameraState);
-  const report = params.get('reportFps') === '1' ? createFpsReporter(stage.frameWorkMs) : null;
+  addTrackerStats(overlay, tracker.stats);
+  const report =
+    params.get('reportFps') === '1' ? createFpsReporter(stage.frameWorkMs, tracker.stats) : null;
   stage.start(scene, (t) => {
     overlay.frame(t);
     report?.(t);

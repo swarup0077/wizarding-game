@@ -33,6 +33,8 @@ src/
     events.ts                EventMap (all event names + payloads)
     types.ts                 Vec2, TracePoint, SpellId, Tier...
     clock.ts                 injectable now() for tests
+    handTopology.ts          the 21 hand landmarks: names, bones, wand tips (perception and presentation)
+    rollingStats.ts          mean and p95 over recent samples (detection time)
   core/settingsTypes.ts      the Settings shape + PREVIEW_FRAMES (core, so settings:changed can carry it)
   settings/settings.ts       persisted user settings (versioned)
   settings/settingsStore.ts  the session's settings: update → save → settings:changed; ui:action → setting
@@ -45,7 +47,12 @@ src/
     mouseWandSource.ts       mouse fallback (same events as the hand)
     keyboardActions.ts       shortcut keys → ui:action (P now; M in T5, S in T13)
   perception/
-    handTracker.ts           HandLandmarker wrapper (browser-only, thin)
+    handTracker.ts           HandLandmarker wrapper (browser-only, thin; the only file that imports MediaPipe)
+    videoFrameLoop.ts        requestVideoFrameCallback, with a rAF fallback (browser-only, thin)
+    detectScheduler.ts       pure: one detection per new frame, never two at once, increasing timestamps
+    delegateFallback.ts      pure: GPU then CPU, at start and mid-session; `?delegate=` override
+    landmarks.ts             pure: MediaPipe result → plain HandFrame, mirrored to selfie space
+    slowTrackingWatch.ts     pure: the low-tracking-fps hysteresis (FR-2 tip)
     oneEuroFilter.ts         pure
     pinchDetector.ts         pure, hysteresis
     calibration.ts           pure raw → calibrated mapping
@@ -78,8 +85,9 @@ src/
     particles.ts             pooled particle system
     effects/                 fizzle.ts, lumos.ts, leviosa.ts, incendio.ts
     hud/                     resultCard.ts, micIndicator.ts, webcamPip.ts, spellCards.ts, toasts.ts (HTML/CSS over the canvas)
-                             cameraCard.ts, mountHud.ts, hud.css; pure: cameraCopy.ts (all camera wording),
-                             toastQueue.ts, platform.ts
+                             cameraCard.ts, mountHud.ts, hud.css, handSkeleton.ts (the skeleton over the preview);
+                             pure: cameraCopy.ts (all camera wording), trackingCopy.ts (tracker wording),
+                             toastQueue.ts, platform.ts, previewState.ts, coverFit.ts
     audio/sfx.ts             Web Audio synthesized sounds
   ui/                        the UI kit (part of presentation; docs/ART_DIRECTION.md)
     theme.css                design tokens and @font-face
@@ -99,8 +107,10 @@ public/
   models/hand_landmarker.task  committed to git, so deploys never download it
   mediapipe/wasm/            copied from node_modules by scripts/copy-mediapipe.mjs
 scripts/
-  copy-mediapipe.mjs         postinstall: copy wasm files into public/
+  copy-mediapipe.mjs         postinstall and prebuild: copy the wasm runtime into public/
   fetch-model.mjs            downloads the hand model once (the file is then committed)
+  measure-fps.mjs            render and tracking measurement in a real Chrome (fps-report.mjs: tables)
+local/                       git-ignored private media (the hand-only test clip); never committed
 bench/
   gestures.bench.test.ts     recognizer benchmark (npm run bench:gestures, not part of npm test)
 tests/fixtures/gestures/     recorded real webcam samples (committed)
@@ -127,9 +137,12 @@ export interface EventMap {
                            failure?: CameraFailureKind; detail?: string; auto?: boolean;
                            actual?: { width: number; height: number; frameRate: number | null; label: string };
                            retriedUnconstrained?: boolean; t: number };   // idle = not asked yet; off = mouse chosen
+  'tracker:status':      { state: 'loading' | 'ready' | 'failed'; delegate?: 'GPU' | 'CPU';
+                           gpuError?: string; failure?: TrackerFailureKind; detail?: string; t: number };
+  'tracker:slow':        { slow: boolean; fps: number; t: number };  // FR-2 tip: below 20 fps for 3 s, or recovered
   'hand:found':          { t: number };
   'hand:lost':           { t: number };
-  'hand:landmarks':      { points: Vec2[]; t: number };              // debug + PiP skeleton only
+  'hand:landmarks':      { points: Vec2[]; t: number };              // debug + PiP skeleton only; every analysed frame, [] = no hand
   'wand:move':           { p: Vec2; t: number; source: 'hand' | 'mouse' };
   'wand:pinchStart':     { p: Vec2; t: number };
   'wand:pinchEnd':       { p: Vec2; t: number };
@@ -231,7 +244,8 @@ All `localStorage` keys are versioned: `wg.settings.v1`, `wg.calibration.v1`, `w
 
 ## Main loop
 - **Rendering:** one `requestAnimationFrame` loop drives scene update, effects, trail, HUD and debug overlay.
-- **Hand tracking:** runs per new video frame (`requestVideoFrameCallback`), on its own schedule rather than the render loop's. On the main thread, detection still takes CPU time from rendering; if that pulls render fps below 55, detection moves to a Web Worker (FR-2). The renderer interpolates between tracking samples.
+- **Hand tracking:** runs per new video frame (`requestVideoFrameCallback`), on its own schedule rather than the render loop's. It loads when the camera is asked for, not on page load. On the main thread, detection still takes time from rendering: each `detectForVideo` call blocks until it is done (T4 measured 19–31 ms on this laptop with no hand in view). Whether to throttle detection while no hand is seen, or to move it to a Web Worker, is decided from T4's measurements (FR-2; `docs/LATER.md` has the worker constraint). The renderer interpolates between tracking samples.
+- **Measuring jank honestly:** `?reportFps=1` logs both rAF-timestamp gaps and real (wall-clock) gaps between frames. rAF timestamps are aligned to vsync, so they hide a frame that ran late because a long task ran just before it; the real gap and the late-frame count show it (T4).
 - **Time:** comes from the injectable clock (`performance.now()` in the browser, fake in tests).
 
 ## Deployment

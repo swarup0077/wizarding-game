@@ -9,11 +9,20 @@ const tuningIndexOnly = {
   message: "Import tuning numbers from 'config/tuning' (the index), not its layer files.",
 };
 
+// MediaPipe stays behind one thin wrapper (T4), so moving detection to a worker later
+// changes one file. Static imports only: ESLint's rule doesn't see dynamic `import()`.
+const mediapipeOnlyInTracker = {
+  group: ['@mediapipe/*'],
+  message: 'Only src/perception/handTracker.ts may use MediaPipe (T4).',
+};
+
 // Layer boundaries from CLAUDE.md, enforced here so they can't drift.
-// Every per-folder rule repeats the tuning rule, because a later rule replaces an earlier one.
-const layerImportBan = (folders, extra = []) => ({
+// Every per-folder rule repeats the tuning and MediaPipe rules, because a later rule
+// replaces an earlier one.
+const layerImportBan = (folders, extra = [], { mediapipe = false } = {}) => ({
   patterns: [
     tuningIndexOnly,
+    ...(mediapipe ? [] : [mediapipeOnlyInTracker]),
     ...folders.map((folder) => ({
       group: [`**/${folder}`, `**/${folder}/**`],
       message: `This layer must not import from ${folder} (CLAUDE.md layer boundaries).`,
@@ -120,6 +129,15 @@ export default tseslint.config(
     },
   },
   {
+    files: ['src/perception/handTracker.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        layerImportBan(['presentation', 'scenes', 'spells', 'ui'], [], { mediapipe: true }),
+      ],
+    },
+  },
+  {
     files: ['src/recognition/**'],
     rules: {
       'no-restricted-imports': [
@@ -146,7 +164,6 @@ export default tseslint.config(
           [
             {
               group: [
-                '@mediapipe/*',
                 '**/perception/handTracker',
                 '**/perception/handTracker.*',
                 '**/perception/speechListener',
