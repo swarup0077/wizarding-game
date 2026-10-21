@@ -8,7 +8,7 @@ import './hud.css';
 import type { Platform } from './platform';
 import { createToasts } from './toasts';
 import { slowTrackingTip, trackerNotice } from './trackingCopy';
-import { createWebcamPip } from './webcamPip';
+import { createWebcamPip, type PreviewFrameSink, type WebcamPip } from './webcamPip';
 
 /** What the HUD needs from the bootstrap. */
 export interface HudOptions {
@@ -17,15 +17,22 @@ export interface HudOptions {
   /** The camera's <video>; the preview shows it. */
   video: HTMLVideoElement;
   platform: Platform;
+  /** Hands the preview's frame sink to the tracker (see webcamPip). */
+  connectFrames: (sink: PreviewFrameSink) => void;
   /** Settings at startup; later changes arrive as `settings:changed`. */
   settings: Readonly<Settings>;
   now: () => number;
 }
 
+/** The mounted HUD's live numbers (debug overlay). */
+export interface Hud {
+  preview: WebcamPip;
+}
+
 /** Builds the HUD once (webcam preview and chip, camera card, toasts). Mount before the camera starts. */
-export function mountHud(options: HudOptions): void {
-  const { parent, bus, video, platform, settings, now } = options;
-  createWebcamPip({ parent, bus, video, settings });
+export function mountHud(options: HudOptions): Hud {
+  const { parent, bus, video, platform, settings, now, connectFrames } = options;
+  const preview = createWebcamPip({ parent, bus, video, settings, connectFrames });
   createCameraCard({ parent, bus, platform, now });
   createToasts(parent, bus, now);
 
@@ -56,4 +63,5 @@ export function mountHud(options: HudOptions): void {
     if (changed.includes('showPreview') && !next.showPreview)
       bus.emit('system:message', { level: 'info', text: PREVIEW_COPY.hidden });
   });
+  return { preview };
 }

@@ -1,6 +1,7 @@
 import { DEBUG } from '../config/tuning';
 import { createFpsMeter } from '../core/fpsMeter';
 import type { TrackerStats } from '../perception/handTracker';
+import type { SyncedPreviewStats } from '../presentation/hud/syncedPreview';
 
 const REPORT_EVERY_MS = 1000;
 
@@ -25,6 +26,7 @@ const REPORT_EVERY_MS = 1000;
 export function createFpsReporter(
   frameWorkMs: () => number,
   tracking?: () => TrackerStats,
+  preview?: () => SyncedPreviewStats,
 ): (rafTime: number) => void {
   const meter = createFpsMeter(DEBUG.fpsWindowMs);
   let lastReport = -Infinity;
@@ -55,6 +57,7 @@ export function createFpsReporter(
       `[fps] ${meter.read(t).toFixed(1)} maxGapMs ${maxGap.toFixed(1)} workMs ${work.toFixed(2)} wallGapMs ${maxWallGap.toFixed(1)} late ${late} at ${t.toFixed(0)}`,
     );
     if (tracking) console.info(trackLine(tracking(), t));
+    if (preview) console.info(previewLine(preview(), t));
     maxGap = 0;
     maxWallGap = 0;
     late = 0;
@@ -72,5 +75,13 @@ function trackLine(s: TrackerStats, t: number): string {
     `latency ${s.latencyMs.toFixed(1)} skew ${s.skewMs.toFixed(1)} ` +
     `hand ${s.handSeen ? 1 : 0} since ${s.loadingAt?.toFixed(0) ?? '-'} ` +
     `ready ${s.readyAt?.toFixed(0) ?? '-'} at ${t.toFixed(0)}`
+  );
+}
+
+function previewLine(s: SyncedPreviewStats, t: number): string {
+  return (
+    `[preview] fps ${s.fps.toFixed(1)} drawMean ${s.drawMeanMs.toFixed(3)} ` +
+    `drawP95 ${s.drawP95Ms.toFixed(3)} lag ${s.lagMeanMs.toFixed(1)} ` +
+    `lagP95 ${s.lagP95Ms.toFixed(1)} at ${t.toFixed(0)}`
   );
 }

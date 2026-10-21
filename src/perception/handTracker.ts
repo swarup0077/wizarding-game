@@ -2,7 +2,7 @@ import { TRACKING } from '../config/tuning';
 import type { Clock } from '../core/clock';
 import type { EventBus } from '../core/eventBus';
 import type { EventMap } from '../core/events';
-import type { TrackerDelegate, TrackerFailureKind } from '../core/types';
+import type { TrackerDelegate, TrackerFailureKind, Vec2 } from '../core/types';
 import { type DelegateOrders, errorText } from './delegateFallback';
 import type {
   BackendEvents,
@@ -65,10 +65,18 @@ export interface TrackerStats extends MetricsSnapshot {
   handSeen: boolean;
 }
 
+/**
+ * Receives each analysed picture with its landmarks, for the synchronized preview. It owns the
+ * frame and must close it (also when it doesn't draw it).
+ */
+export type PreviewSink = (frame: VideoFrame, points: readonly Vec2[], captureTime: number) => void;
+
 /** The running tracker. */
 export interface HandTracker {
   /** Every analysed frame: the hand, or null when none was found (T5 builds the wand from this). */
   onFrame(listener: (frame: HandFrame | null) => void): void;
+  /** Sends every analysed picture to `sink` (one sink; the webcam preview). */
+  setPreviewSink(sink: PreviewSink | null): void;
   stats: () => TrackerStats;
 }
 
@@ -76,6 +84,7 @@ export interface HandTracker {
 export function createHandTracker(options: HandTrackerOptions): HandTracker {
   const { bus, video, clock, assetBase, delegates, workerUrl, simulate } = options;
   const listeners: ((frame: HandFrame | null) => void)[] = [];
+  let previewSink: PreviewSink | null = null;
   const metrics = createTrackerMetrics();
   const slowWatch = createSlowTrackingWatch({
     thresholdFps: TRACKING.lowFpsThreshold,
@@ -123,9 +132,11 @@ export function createHandTracker(options: HandTrackerOptions): HandTracker {
   function makeBackend(thread: DetectionThread): DetectionBackend {
     const mine = ++generation;
     const events: BackendEvents = {
-      onResult: (hand, captureTime, ms) => {
-        if (mine === generation) onResult(hand, captureTime, ms);
+      onResult: (hand, captureTime, ms, frame) => {
+        if (mine === generation) onResult(hand, captureTime, ms, frame);
+        else frame?.close(); // a replaced backend's late result
       },
+      wantsFrame: () => previewSink !== null,
       onDelegate: (next) => {
         if (mine === generation) setReady(next);
       },
@@ -178,11 +189,21 @@ export function createHandTracker(options: HandTrackerOptions): HandTracker {
     else fail(typeof WebAssembly === 'undefined' ? 'unsupported' : 'load-failed', detail);
   }
 
-  function onResult(hand: HandFrame | null, captureTime: number, ms: number): void {
+  function onResult(
+    hand: HandFrame | null,
+    captureTime: number,
+    ms: number,
+    frame: VideoFrame | null,
+  ): void {
     metrics.result(clock.now(), captureTime, ms);
     handSeen = hand !== null;
-    bus.emit('hand:landmarks', { points: hand?.points ?? [], t: captureTime });
+    const points = hand?.points ?? [];
+    bus.emit('hand:landmarks', { points, t: captureTime });
     for (const listener of listeners) listener(hand);
+    if (frame) {
+      if (previewSink) previewSink(frame, points, captureTime);
+      else frame.close();
+    }
   }
 
   function onVideoFrame(frameId: number, captureTime: number): void {
@@ -229,6 +250,9 @@ export function createHandTracker(options: HandTrackerOptions): HandTracker {
   return {
     onFrame(listener) {
       listeners.push(listener);
+    },
+    setPreviewSink(sink) {
+      previewSink = sink;
     },
     stats() {
       const now = clock.now();

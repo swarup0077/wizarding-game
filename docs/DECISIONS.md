@@ -483,3 +483,40 @@ Each entry: the decision, the alternatives, and why. Add new ones at the bottom 
   - **The CPU in the worker is clean:** 34–50 ms per detection, 19–28 fps tracking, and no stall (start gap 22–39 ms). It passes the NFR-1 render bar on the laptop and on Retina.
   - **On the main thread the GPU stays faster**, so the fallback keeps it first.
   - The GPU's slowness in a worker may be specific to this machine (Intel graphics through ANGLE/D3D11), so the Mac re-checks it.
+
+## D-069: The preview shows each analysed frame with its own skeleton (T4 part 3)
+- **Decision:**
+  - **The handover:** the worker backend's `clone()` of each sent frame, which it already kept, now goes up with the result instead of being closed. The tracker hands it to the preview through a sink that `main.ts` wires (`tracker.setPreviewSink`), because a VideoFrame can't travel on the bus.
+  - **The drawing:** `presentation/hud/syncedPreview.ts` draws the frame, mirrored with the same cover crop as the video, plus its skeleton on one canvas, then closes it. Every handed frame is closed, drawn or not.
+  - **At most 2 frames are held:** the in-flight clone and the one being drawn.
+  - **The live `<video>` stays under the canvas,** so the picture shows while the tracker readies, and again 500 ms after results stop (`HUD.previewStaleMs`).
+  - **Hidden preview (P):** frames are closed unseen, nothing is drawn, and tracking continues.
+  - **The main-thread fallback** makes a frame per detection only while a preview wants one.
+  - **Measuring override:** `?preview=live` shows the live video with no pictures, the part 2 behaviour.
+- **Alternatives:** the live `<video>` with the skeleton drawn on top. That was part 2's design; the skeleton lagged the picture by 34–63 ms, more than one 33 ms camera frame.
+- **Why:** the skeleton always matches the picture under it (skew 0 by construction).
+- **Measured cost (Iris Xe, the hand clip):**
+
+  | Detection on | Main-thread time per picture | Picture behind the camera |
+  |---|---|---|
+  | Worker · CPU | 0.25–0.58 ms mean, 0.30–2.2 ms p95 | 53–88 ms mean |
+  | Main-thread fallback | 0.39 / 0.60 ms | 36 / 53 ms |
+
+  The picture now moves at the tracking rate (15–30 fps), not the camera's.
+- **A/B against the live preview:** no measurable difference in frame gaps over 60 s (see D-070 for the gaps themselves).
+
+## D-070: The slow CPU-worker state and the frame-gap hitches: what was tried, and what remains (T4 part 3)
+- **The slow state:** on this laptop (i5-1340P: 4 performance and 8 efficiency cores), the CPU worker starts in one of two states for the whole session: about 31–35 ms per detection (28–30 fps tracking) or about 49–53 ms (18–19 fps).
+  - Seen with either power mode, and with either delayed or immediate camera start.
+  - **Tried, none kept (minimal runs each):**
+    - **"Best performance" power mode** (it was already active): 2 of 4 runs still slow.
+    - **480×360 frames to the worker:** no help. Slow state 49.3 against 49.7 ms; fast state 41.6 against 35.3 ms, so slower. Hands found in 85–100% of frames either way.
+    - **Restarting a slow-started worker once** (mean over 42 ms in the first 3 s): it fired in 3 of 4 runs, and all 3 replacements were slow again (50–53 ms). The state belongs to the browser session, not the worker thread.
+  - **What remains:** a known laptop-specific deviation from NFR-1's tracking floor (25 fps) in slow sessions. Recorded in PROGRESS.md. NFR-1 is unchanged.
+- **The frame-gap hitches:** what the trace showed (30 s at Retina, the CPU worker):
+  - all 8 gaps over 40 ms lined up with a 27–52 ms task on Chrome's GPU-process main thread (`GPUTask → WebGL → CommandBuffer::Flush`);
+  - 47 such flushes, 1067 ms in total, all WebGL: MediaPipe's image work in the worker, which uses WebGL even on the CPU delegate;
+  - the page's main thread stayed free (tasks of 4–14 ms).
+- **Tried, not kept:** giving MediaPipe RGBA pixels in memory (`VideoFrame.copyTo` → `ImageData`). One 20 s trace was clean, but over four 60 s runs the gaps were no better (44–116 ms against 51–78 ms with frames).
+- **Control (no camera, no tracker, drawing only), same afternoon:** longest gap 50–52 ms, with 1–4 seconds per minute over 25 ms. In T2 it was about 18 ms. So background load on the machine (another browser, editors) also produces hitches. A traced control run was clean, so they come and go.
+- **Status:** re-measured on a quiet machine, with the control run first, the 60 s bar **passes**, laptop and Retina: longest gaps 31.2 / 19.8 ms, 0.0 late frames per second, start-up gaps 37.8 / 22.1 ms. The earlier hitches came mostly from background load. The measurement procedure in PROGRESS.md now requires a quiet machine and a clean control first. The MediaPipe WebGL flushes are real and get longer under load; AC-15 re-checks the Mac.

@@ -22,6 +22,15 @@ const readyOf = (host: LandmarkerHost): BackendReady => {
   return { delegate, gpuError, loadMs, warmupMs };
 };
 
+/** The <video>'s current picture (the frame just analysed), or null if it can't be read. */
+function pictureOf(video: HTMLVideoElement, captureTime: number): VideoFrame | null {
+  try {
+    return new VideoFrame(video, { timestamp: Math.round(captureTime * 1000) });
+  } catch {
+    return null;
+  }
+}
+
 /** Creates the main-thread backend. Nothing loads until `start()`. */
 export function createMainThreadBackend(options: MainThreadBackendOptions): DetectionBackend {
   const { video, assetBase, delegates, events } = options;
@@ -70,7 +79,12 @@ export function createMainThreadBackend(options: MainThreadBackendOptions): Dete
       }
       const detectMs = performance.now() - start;
       scheduler.finish();
-      events.onResult(toHandFrame(result, captureTime), captureTime, detectMs);
+      events.onResult(
+        toHandFrame(result, captureTime),
+        captureTime,
+        detectMs,
+        events.wantsFrame() ? pictureOf(video, captureTime) : null,
+      );
     },
 
     dispose() {

@@ -91,7 +91,7 @@ src/
     particles.ts             pooled particle system
     effects/                 fizzle.ts, lumos.ts, leviosa.ts, incendio.ts
     hud/                     resultCard.ts, micIndicator.ts, webcamPip.ts, spellCards.ts, toasts.ts (HTML/CSS over the canvas)
-                             cameraCard.ts, mountHud.ts, hud.css, handSkeleton.ts (the skeleton over the preview);
+                             cameraCard.ts, mountHud.ts, hud.css, syncedPreview.ts (each analysed frame with its skeleton), handSkeleton.ts (draws it);
                              pure: cameraCopy.ts (all camera wording), trackingCopy.ts (tracker wording),
                              toastQueue.ts, platform.ts, previewState.ts, coverFit.ts
     audio/sfx.ts             Web Audio synthesized sounds

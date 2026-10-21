@@ -14,7 +14,7 @@ One entry per task. Newest at the bottom.
 | AC | Result | Notes |
 |---|---|---|
 | AC-1 Begin → stage < 20 s | – | |
-| AC-2 Tracking ≥ 25 fps, render ≥ 55 fps | – | |
+| AC-2 Tracking ≥ 25 fps, render bar (D-065) | Render PASS (T4) | Quiet machine, 60 s, laptop and Retina, worker · CPU, synced preview. Tracking 28 fps in fast sessions, 19 fps in slow ones (a laptop-specific deviation, T4 part 3) |
 | AC-3 No casts from waving (60 s) | – | |
 | AC-4 No casts from talking (60 s) | – | |
 | AC-5 Gesture accuracy (default ≥ 17/20, personal ≥ 19/20) | – | |
@@ -46,6 +46,12 @@ The cases:
 
 Options: `--seconds 30` (longer runs), `--only retina-cap2-drawing` (selected runs), `--query "demo=loop&handRate=1"` (extra URL query for every run, e.g. a spell demo in later tasks), `--url https://wizarding-game.vercel.app` (measure the deployed site; nothing is started). `CHROME_PATH` overrides where Chrome is found.
 Since T4: `--clip local/clips/hand.y4m` feeds the private hand clip to Chrome's fake camera (it is always the fake camera, never the webcam), and the `*-tracking*` runs add a tracking table (delegate, tracking and video fps, detection mean / p95, first detection, hand seen). Both tables now show the **longest real gap** and **late frames per second** (D-063). A run is flagged INCOMPLETE if the page stopped rendering (display asleep, window minimized); the display must stay awake while measuring.
+
+**Before every measurement (T4 part 3):**
+1. Close other browsers and IDEs (they share the CPU and GPU), and stay plugged in.
+2. Run the drawing-only control first: `npm run measure:fps -- --only native-drawing,retina-cap2-drawing --seconds 60 --fresh-each`.
+3. If the control fails (a longest real gap over 50 ms, or more than an occasional second with a gap over 25 ms), don't trust the run. Find what is loading the machine and measure again.
+4. Rerun anything flagged INCOMPLETE or CAMERA STALLED.
 
 Reading the table:
 - **fps** is capped by the display (60 here), so it can't show headroom.
@@ -448,3 +454,65 @@ A follow-up run with timestamps showed every long gap inside the first 2.2 s aft
 1. **The worker tries the CPU first; the main thread keeps the GPU first** (D-068). The default is now "Worker · CPU". AC-15 compares the two delegates on the Mac.
 2. **The 50 ms CPU-worker case** gets a time-boxed check: the Windows power mode, and sending smaller frames (T4 part 3).
 3. **The skeleton skew** (over one camera frame) is fixed with a synchronized preview (T4 part 3).
+
+## T4 part 3: Synchronized preview, the slow-state attempts, the hitch trace (2026-10-21)
+**Done:**
+- **The synchronized preview (D-069):** each analysed frame is drawn with its own skeleton, so they always match.
+  - Frames come from the worker backend's existing clone. At most 2 are held, and every one is closed, drawn or not.
+  - Every frame style is kept. The live `<video>` shows underneath while the tracker readies.
+  - When hidden (P), nothing is drawn while tracking continues (checked: preview 0 fps, tracking 29 fps).
+  - New debug rows: Preview draw (fps · mean / p95 ms) and Picture lag. `?preview=live` is a measuring override.
+  - `handSkeleton.ts` is now a drawing function. `syncedPreview.ts` draws the frame and the skeleton.
+- **Delegate order (D-068):** Worker · CPU is the default. Verified on Vercel after the part 2 push: the hashed worker (`hand-worker.bb09af3785.js`) is served and referenced by the deployed main bundle, the tracker is ready on Worker · CPU, and the console has no errors from our code.
+- **The slow-state mitigations** were tried and reverted, and **the hitch** was traced (D-070).
+
+**Numbers** (Iris Xe, on AC power, "Best performance" power mode, Chrome 155, the hand clip, a fresh profile per run):
+
+| | Main thread per picture | Picture lag | Notes |
+|---|---|---|---|
+| Synced preview, worker · CPU | 0.25–0.58 ms mean / 0.30–2.2 ms p95 | 53–88 ms | moves at the tracking rate |
+| Synced preview, main-thread fallback | 0.39 / 0.60 ms | 36 / 53 ms | |
+
+**The slow CPU-worker state** (detection mean; tracking fps from a 30 fps camera):
+
+| Attempt | Runs | Result |
+|---|---|---|
+| "Best performance" power mode | 4 | 2 fast (31 ms, 29 fps), 2 slow (49–52 ms, 18–19 fps) |
+| 480×360 input | 3 against 2 at 640 | 41.6 / 44.4 / 49.3 ms against 35.3 / 49.7 ms: no help. Hands seen 85–100% either way |
+| Restart a slow-started worker once | 4 | fired 3 times; all 3 replacements slow again (50–53 ms) |
+
+**Known laptop-specific deviation (NFR-1 unchanged):** on this laptop, some browser sessions run the CPU worker at about 50 ms per detection, which tracks at 18–19 fps, below NFR-1's 25 fps floor. Other sessions run at about 31–35 ms (28–30 fps). It isn't the power mode, the input size or the worker thread. It is recorded here and re-checked on the Mac (AC-15).
+
+**Hitch investigation** (D-070):
+- **The trace:** the long frame gaps line up with 20–50 ms WebGL flushes on Chrome's GPU main thread, coming from MediaPipe in the worker. The page's main thread stays free.
+- **Not the synced preview:** an A/B against the live preview showed no difference.
+- **Not the input:** CPU pixels didn't help over 60 s.
+- **The environment:** with no camera and no tracker, the drawing loop alone showed gaps of 50–52 ms today, against about 18 ms in T2, so background load on the machine also produces hitches.
+
+**60 s bar runs today** (the CPU worker, the hand clip; busy machine):
+
+| Run | Longest real gap | Seconds with a gap > 25 ms | Late frames per s | Bar |
+|---|---|---|---|---|
+| laptop, synced | 58.4 ms | 2 of 69 | 0.1 | FAIL (gap) |
+| Retina, synced | 89.3 ms | 8 of 69 | 0.2 | FAIL (gap) |
+| Retina, live preview (A/B) | 45.4–56.5 ms | 5–6 of 69 | 0.0–0.6 | FAIL (gap / start) |
+| Control: laptop, drawing only | 49.8 ms | 1 of 61 | 0.0 | (gap 50 ms) |
+| Control: Retina, drawing only | 51.6 ms | 4 of 61 | 0.2 | (gap 52 ms) |
+
+Part 2's 60 s runs (the same pipeline minus the synced preview, earlier in the day) passed: longest gaps 27.8 / 19.6 ms.
+
+**Re-measured on a quiet machine** (another browser and IDE closed, plugged in, "Best performance"; the control first):
+
+| Run | Longest real gap | Seconds with a gap > 25 ms | Late frames per s (worst s) | Start gap | Tracking fps (camera 30) | Bar |
+|---|---|---|---|---|---|---|
+| Control: laptop, drawing only | 21.3 ms | 0 of 61 | 0.0 | – | – | clean |
+| Control: Retina, drawing only | 43.8 ms | 1 of 61 | 0.0 | – | – | clean (under 50 ms) |
+| Laptop, worker · CPU, synced preview | 31.2 ms | 2 of 69 | 0.0 (1) | 37.8 ms | 19.5 (a slow session) | **PASS** |
+| Retina, worker · CPU, synced preview | 19.8 ms | 1 of 69 | 0.0 (0) | 22.1 ms | 28.3 (a fast session) | **PASS** |
+
+- **Preview cost in these runs:** draw 0.25 ms mean (0.60–0.70 ms p95); the picture is 63–76 ms behind the camera.
+- **Detection:** 49.5 ms (slow session) and 34.2 ms (fast session).
+- **One 58.8 ms gap** appeared in the Retina run's render table. It fell just before the tracker started loading, around the camera start (the preview's first picture), so it lies outside both bar windows. It happened once in the run.
+- Two runs in this set were flagged INCOMPLETE (the page stopped rendering) and were rerun. Only the reruns are shown.
+- **Verdict:** on a quiet machine the render bar passes, laptop and Retina, with the synchronized preview. The hitches seen earlier came mostly from background load: the drawing-only control failed then too. The MediaPipe WebGL flushes in the trace (D-070) are real and lengthen under load, so they're worth re-checking on the Mac (AC-15).
+- **Tracking ≥ 25 fps** still depends on the session state: the known laptop-specific deviation above.

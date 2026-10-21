@@ -17,8 +17,19 @@ export interface BackendReady {
 
 /** What a backend reports while running. */
 export interface BackendEvents {
-  /** One analysed frame. `captureTime` is the frame's (main-thread clock), echoed back. */
-  onResult(hand: HandFrame | null, captureTime: number, detectMs: number): void;
+  /**
+   * One analysed frame. `captureTime` is the frame's (main-thread clock), echoed back.
+   * `frame` is the picture that was analysed (when `wantsFrame()` said so): the receiver now
+   * owns it and must close it.
+   */
+  onResult(
+    hand: HandFrame | null,
+    captureTime: number,
+    detectMs: number,
+    frame: VideoFrame | null,
+  ): void;
+  /** Whether results should carry their picture (the synchronized preview, T4 part 3). */
+  wantsFrame(): boolean;
   /** The delegate changed mid-session (the GPU failed, the CPU took over). */
   onDelegate(ready: BackendReady): void;
   /** The backend can't continue (crash, overdue result, no delegate left). */

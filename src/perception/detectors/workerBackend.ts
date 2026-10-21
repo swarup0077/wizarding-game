@@ -53,13 +53,19 @@ export function createWorkerBackend(options: WorkerBackendOptions): DetectionBac
   const send = (message: ToWorker, transfer: Transferable[] = []): void =>
     worker?.postMessage(message, transfer);
 
-  /** Closes our handle on the frame in flight and lets the next frame through. */
-  function release(): void {
-    if (!inFlight) return;
+  /** Ends the detection in flight and returns our handle on its frame (null if none). */
+  function takeInFlight(): VideoFrame | null {
+    if (!inFlight) return null;
     clearTimeout(inFlight.overdue);
-    inFlight.keep.close();
+    const { keep } = inFlight;
     inFlight = null;
     scheduler.finish();
+    return keep;
+  }
+
+  /** Closes our handle on the frame in flight and lets the next frame through. */
+  function release(): void {
+    takeInFlight()?.close();
   }
 
   function fail(detail: string): void {
@@ -89,8 +95,11 @@ export function createWorkerBackend(options: WorkerBackendOptions): DetectionBac
     } else if (message.type === 'failed') fail(message.detail);
     else if (message.type === 'error') fail(message.detail);
     else if (inFlight?.frameId === message.frameId) {
-      release();
-      events.onResult(message.hand, message.captureTime, message.detectMs);
+      // Our handle on the analysed frame goes up with the result (the synchronized preview
+      // draws and closes it), or is closed here when nobody wants it.
+      const keep = takeInFlight();
+      const frame = events.wantsFrame() ? keep : (keep?.close(), null);
+      events.onResult(message.hand, message.captureTime, message.detectMs, frame);
       // Catch up: the <video> still shows the newest skipped frame, so send it now.
       const next = skipped;
       skipped = null;

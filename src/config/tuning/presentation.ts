@@ -125,6 +125,8 @@ export const HUD = {
   slowTipCooldownMs: 60_000,
   /** Gap between the status chip and the preview when both show (the "readying" line). */
   pipChipGapPx: 8,
+  /** With no analysed picture for this long, the preview shows the live <video> again. */
+  previewStaleMs: 500,
 };
 
 /** FR-20: the hand skeleton drawn over the webcam preview, in CSS px. */

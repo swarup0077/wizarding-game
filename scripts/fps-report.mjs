@@ -4,6 +4,8 @@
 //   [fps] 59.8 maxGapMs 17.2 workMs 1.4 wallGapMs 18.1 late 0 at 12345
 //   [track] state ready thread worker delegate GPU fps 29.8 videoFps 30.0 detectMean 12.30 detectP95 15.10 firstMs 34 warmMs 3100 latency 48.0 skew 33.0 hand 1 since 2500 ready 6100 at 12345
 
+//   [preview] fps 29.0 drawMean 0.450 drawP95 0.700 lag 61.0 lagP95 80.0 at 12345
+
 const STARTUP_SKIP_MS = 2000;
 /** A gap longer than this belongs to the previous page being paused, not to this run. */
 const PAUSE_GAP_MS = 5000;
@@ -23,7 +25,24 @@ const FPS_LINE =
 const TRACK_LINE =
   /\[track\] state (\w+) thread (\S+) delegate (\S+) fps ([\d.]+) videoFps ([\d.]+) detectMean ([\d.]+) detectP95 ([\d.]+) firstMs (\S+) warmMs (\S+) latency ([\d.]+) skew ([\d.]+) hand (\d) since (\S+) ready (\S+) at (\d+)/;
 
+const PREVIEW_LINE =
+  /\[preview\] fps ([\d.]+) drawMean ([\d.]+) drawP95 ([\d.]+) lag ([\d.]+) lagP95 ([\d.]+) at (\d+)/;
+
 const mean = (values) => values.reduce((a, b) => a + b, 0) / values.length;
+
+function parsePreview(lines) {
+  return lines
+    .map((line) => line.match(PREVIEW_LINE))
+    .filter(Boolean)
+    .map((m) => ({
+      fps: +m[1],
+      drawMean: +m[2],
+      drawP95: +m[3],
+      lag: +m[4],
+      lagP95: +m[5],
+      at: +m[6],
+    }));
+}
 
 function parseFps(lines) {
   return lines
@@ -110,9 +129,12 @@ export function summarizeRender(lines) {
  */
 export function summarizeTracking(lines) {
   const track = parseTrack(lines);
-  const ready = track.find((r) => r.state === 'ready' && r.fps > 0);
+  // The first ready line starts the start-up window; the last one starts the steady state
+  // (after a restart, the steady state belongs to the final worker).
+  const readyLines = track.filter((r) => r.state === 'ready' && r.fps > 0);
+  const ready = readyLines[0];
   const loadingAt = ready?.loadingAt ?? null;
-  const readyAt = ready?.readyAt ?? null;
+  const readyAt = readyLines.at(-1)?.readyAt ?? null;
   const failed = track.find((r) => r.state === 'failed');
   // No ready line with frames: the tracker failed, or the camera never delivered (a stall).
   if (!ready) return { readyAt: null, failed: Boolean(failed), stalled: !failed };
@@ -132,6 +154,7 @@ export function summarizeTracking(lines) {
   // The run's last second is cut by the next navigation, so it doesn't count.
   const stalled = steady.slice(0, -1).some((r) => r.videoFps < CAMERA_STALL_SHARE * medianVideo);
   const render = renderSummary(fpsRows.filter((r) => r.at >= from));
+  const preview = parsePreview(lines).filter((r) => r.at >= from && r.drawMean > 0);
   return {
     readyAt: readyAt ?? ready.at,
     loadingAt,
@@ -153,6 +176,15 @@ export function summarizeTracking(lines) {
     skew: mean(steady.map((r) => r.skew)),
     handShare: steady.filter((r) => r.hand).length / steady.length,
     render,
+    preview: preview.length
+      ? {
+          fps: mean(preview.map((r) => r.fps)),
+          drawMean: mean(preview.map((r) => r.drawMean)),
+          drawP95: Math.max(...preview.map((r) => r.drawP95)),
+          lag: mean(preview.map((r) => r.lag)),
+          lagP95: Math.max(...preview.map((r) => r.lagP95)),
+        }
+      : null,
     bar: meetsBar(render, startupGap),
   };
 }
@@ -178,10 +210,10 @@ export function renderTable(results) {
 /** The tracking table (tracking runs only). */
 export function trackingTable(results) {
   const out = [
-    '| Run | Runs on | Tracking fps (video) | Detection mean / p95 | Start: load → ready / warm-up / first detection | Capture → result | Skeleton skew | Hand seen | Render fps | Late frames per s (worst s) | Longest real gap | Start-up longest gap | Bar |',
-    '|---|---|---|---|---|---|---|---|---|---|---|---|---|',
+    '| Run | Runs on | Tracking fps (video) | Detection mean / p95 | Start: load → ready / warm-up / first detection | Capture → result | Skeleton skew | Hand seen | Preview: fps · draw mean / p95 · picture lag mean / p95 | Render fps | Late frames per s (worst s) | Longest real gap | Start-up longest gap | Bar |',
+    '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
   ];
-  const empty = ' |'.repeat(11);
+  const empty = ' |'.repeat(12);
   for (const { run, tracking: t } of results) {
     if (!t) continue;
     if (t.readyAt === null) {
@@ -194,10 +226,14 @@ export function trackingTable(results) {
       continue;
     }
     const r = t.render;
+    const p = t.preview;
+    const previewCell = p
+      ? `${f(p.fps, 0)} · ${f(p.drawMean, 2)} / ${f(p.drawP95, 2)} ms · ${f(p.lag, 0)} / ${f(p.lagP95, 0)} ms`
+      : '–';
     const verdict = t.bar.pass ? 'PASS' : `FAIL (${t.bar.misses.join(', ')})`;
     const bar = t.stalled ? `INVALID: CAMERA STALLED, rerun (${verdict})` : verdict;
     out.push(
-      `| ${run.name} | ${t.thread} · ${t.delegate} | ${f(t.fpsMean)} (${f(t.videoFps, 0)}) | ${f(t.detectMean)} / ${f(t.detectP95)} ms | ${t.loadingAt === null ? '–' : f(t.readyAt - t.loadingAt, 0)} / ${f(t.warmMs, 0)} / ${f(t.firstMs, 0)} ms | ${f(t.latency, 0)} ms | ${f(t.skew, 0)} ms | ${Math.round(t.handShare * 100)}% | ${r ? `${f(r.fpsMean)} / ${f(r.fpsMin, 0)}` : '–'} | ${r ? `${f(r.latePerSecond)} (${f(r.lateWorstSecond, 0)})` : '–'} | ${r ? `${f(r.wallGapMax)} ms` : '–'} | ${f(t.startupGap)} ms | ${bar} |`,
+      `| ${run.name} | ${t.thread} · ${t.delegate} | ${f(t.fpsMean)} (${f(t.videoFps, 0)}) | ${f(t.detectMean)} / ${f(t.detectP95)} ms | ${t.loadingAt === null ? '–' : f(t.readyAt - t.loadingAt, 0)} / ${f(t.warmMs, 0)} / ${f(t.firstMs, 0)} ms | ${f(t.latency, 0)} ms | ${f(t.skew, 0)} ms | ${Math.round(t.handShare * 100)}% | ${previewCell} | ${r ? `${f(r.fpsMean)} / ${f(r.fpsMin, 0)}` : '–'} | ${r ? `${f(r.latePerSecond)} (${f(r.lateWorstSecond, 0)})` : '–'} | ${r ? `${f(r.wallGapMax)} ms` : '–'} | ${f(t.startupGap)} ms | ${bar} |`,
     );
   }
   return out.join('\n');
@@ -205,5 +241,6 @@ export function trackingTable(results) {
 
 /** Console lines that aren't our measurement lines (MediaPipe's start-up output, errors). */
 export function otherLines(lines) {
-  return [...new Set(lines.filter((l) => !FPS_LINE.test(l) && !TRACK_LINE.test(l)))];
+  const ours = (l) => FPS_LINE.test(l) || TRACK_LINE.test(l) || PREVIEW_LINE.test(l);
+  return [...new Set(lines.filter((l) => !ours(l)))];
 }

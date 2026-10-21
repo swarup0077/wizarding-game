@@ -4,7 +4,7 @@ import { createEventBus, type EventBus } from './core/eventBus';
 import type { EventMap } from './core/events';
 import { createDebugOverlay, type DebugOverlay } from './dev/debugOverlay';
 import { createFpsReporter } from './dev/fpsReporter';
-import { addTrackerStats } from './dev/trackerStats';
+import { addPreviewStats, addTrackerStats } from './dev/trackerStats';
 import type { StrokeDemo } from './dev/strokeDemo';
 import { createBrowserCamera } from './input/camera';
 import { createCameraController } from './input/cameraController';
@@ -87,14 +87,6 @@ export async function bootstrap(): Promise<App> {
   const camera = createBrowserCamera();
   const cameraState = watchCameraStatus(bus);
   const platform = parsePlatformOverride(params.get('platform')) ?? detectPlatform();
-  mountHud({
-    parent: hud,
-    bus,
-    video: camera.video,
-    platform,
-    settings: settingsStore.get(),
-    now: () => systemClock.now(),
-  });
   // Hand tracking (T4) reads the same <video> the preview shows, and detects in the hand
   // worker. It loads when the camera is asked for. Dev overrides, for measuring and
   // rehearsing failures: `?delegate=cpu|gpu`, `?detector=main`, `?simulateTracker=<failure>`.
@@ -107,6 +99,19 @@ export async function bootstrap(): Promise<App> {
     delegates: delegateOrdersFromQuery(search),
     workerUrl: detectorFromQuery(search) === 'main' ? null : HAND_WORKER_URL,
     simulate: trackerSimulationFromQuery(search),
+  });
+  // Analysed pictures go from the tracker to the preview directly: VideoFrames can't travel
+  // on the bus (the synchronized preview, T4 part 3). `?preview=live` (measuring) shows the
+  // live <video> instead and sends no pictures.
+  const livePreview = params.get('preview') === 'live';
+  const hudParts = mountHud({
+    parent: hud,
+    bus,
+    video: camera.video,
+    platform,
+    settings: settingsStore.get(),
+    now: () => systemClock.now(),
+    connectFrames: (sink) => tracker.setPreviewSink(livePreview ? null : sink),
   });
   // The UI gallery shows the camera card itself; the live one would cover it.
   if (params.get('dev') !== 'ui')
@@ -125,8 +130,11 @@ export async function bootstrap(): Promise<App> {
   const overlay = buildOverlay(stage, dprCap, capOverride !== null, handRate, trail);
   addCameraStats(overlay, cameraState);
   addTrackerStats(overlay, tracker.stats);
+  addPreviewStats(overlay, hudParts.preview.stats);
   const report =
-    params.get('reportFps') === '1' ? createFpsReporter(stage.frameWorkMs, tracker.stats) : null;
+    params.get('reportFps') === '1'
+      ? createFpsReporter(stage.frameWorkMs, tracker.stats, hudParts.preview.stats)
+      : null;
   stage.start(scene, (t) => {
     overlay.frame(t);
     report?.(t);

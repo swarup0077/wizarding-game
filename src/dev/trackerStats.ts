@@ -1,5 +1,6 @@
 import { PERFORMANCE } from '../config/tuning';
 import type { TrackerStats } from '../perception/handTracker';
+import type { SyncedPreviewStats } from '../presentation/hud/syncedPreview';
 import type { DebugOverlay } from './debugOverlay';
 
 const THREAD_LABEL = { worker: 'Worker', main: 'Main thread' } as const;
@@ -61,4 +62,18 @@ export function addTrackerStats(overlay: DebugOverlay, stats: () => TrackerStats
     return `${s.skewMs.toFixed(0)} mean / ${s.skewP95Ms.toFixed(0)} p95 ms`;
   });
   overlay.addStat('Hand', () => (stats().handSeen ? 'seen' : '–'));
+}
+
+/** Debug rows for the synchronized preview (T4 part 3): its main-thread cost and how late it is. */
+export function addPreviewStats(overlay: DebugOverlay, stats: () => SyncedPreviewStats): void {
+  overlay.addStat('Preview draw', () => {
+    const s = stats();
+    if (s.drawMeanMs === 0) return '–';
+    return `${s.fps.toFixed(0)} fps · ${s.drawMeanMs.toFixed(2)} mean / ${s.drawP95Ms.toFixed(2)} p95 ms`;
+  });
+  overlay.addStat('Picture lag', () => {
+    const s = stats();
+    if (s.lagMeanMs === 0) return '–';
+    return `${s.lagMeanMs.toFixed(0)} mean / ${s.lagP95Ms.toFixed(0)} p95 ms behind the camera`;
+  });
 }
